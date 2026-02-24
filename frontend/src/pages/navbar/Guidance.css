@@ -1,0 +1,38 @@
+.guidance-container {
+  padding-top: 100px;
+  padding-bottom: 50px;
+  padding-left: 250px;
+  padding-right: 250px;
+  font-family: Arial, sans-serif;
+}
+
+.card {
+  background: #f4f8ff;
+  padding: 15px;
+  margin-bottom: 15px;
+  border-radius: 8px;
+}
+
+.emergency-box {
+  background: #fff4f4;
+  padding: 15px;
+  margin-bottom: 15px;
+  border-left: 4px solid red;
+}
+
+.contacts-box {
+  background: #e8f5e9;
+  padding: 20px;
+  border-radius: 8px;
+}
+
+.sos-btn {
+  background: red;
+  color: white;
+  font-weight: bold;
+  padding: 12px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-top: 15px;
+}

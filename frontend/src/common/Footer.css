@@ -1,0 +1,513 @@
+/* src/components/common/Footer.css */
+
+/* Footer Base Styles */
+.footer {
+  background: linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%);
+  color: black;
+  margin-top: auto;
+  position: relative;
+}
+
+.footer-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* Main Footer Content */
+.footer-main {
+  padding: 40px 0 20px;
+}
+
+.footer-main .footer-container {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1.5fr 1.5fr;
+  gap: 40px;
+  align-items: start;
+}
+
+.footer-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.brand-section {
+  grid-column: 1;
+}
+
+.footer-logo h3 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 15px;
+}
+
+.footer-description {
+  line-height: 1.6;
+  margin-bottom: 20px;
+  opacity: 0.9;
+}
+
+/* Social Links */
+.social-links {
+  display: flex;
+  gap: 15px;
+}
+
+.social-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: #d4e1e6;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  text-decoration: none;
+}
+
+.social-link:hover {
+  background: rgba(255 , 255, 255, 0.1); /* #a6b0b4 */
+  transform: translateY(-2px);
+}
+
+.social-icon {
+  font-size: 1.2rem;
+}
+
+/* Footer Titles */
+.footer-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 20px;
+  color: black;
+  position: relative;
+}
+
+.footer-title::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 0;
+  width: 30px;
+  height: 2px;
+  background: #ff6b6b;
+}
+
+/* Footer Links */
+.footer-links {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.footer-links li {
+  margin-bottom: 12px;
+}
+
+.footer-links a {
+  color: #515759;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  position: relative;
+  padding-left: 0;
+}
+
+.footer-links a:hover,
+.footer-links a.active {
+  color: black;
+  padding-left: 10px;
+}
+
+.footer-links a::before {
+  content: '›';
+  position: absolute;
+  left: -10px;
+  opacity: 0;
+  transition: all 0.3s ease;
+}
+
+.footer-links a:hover::before,
+.footer-links a.active::before {
+  left: 0;
+  opacity: 1;
+}
+
+/* Emergency Contacts */
+.emergency-section {
+  grid-column: 3;
+}
+
+.emergency-contacts {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.emergency-contact {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  background: #d4e1e6;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 1px solid transparent;
+}
+
+.emergency-contact:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateX(5px);
+}
+
+.contact-icon {
+  font-size: 1.3rem;
+  width: 30px;
+  text-align: center;
+}
+
+.contact-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.contact-name {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.contact-number {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #ff6b6b;
+}
+
+/* App Download Section */
+.app-download {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 25px;
+}
+
+.download-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  color: black;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: left;
+  width: 100%;
+}
+
+.download-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.btn-icon {
+  font-size: 1.5rem;
+}
+
+.btn-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.get-on {
+  font-size: 0.8rem;
+  opacity: 0.8;
+}
+
+.store-name {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* Support Info */
+.support-info h5 {
+  margin-bottom: 10px;
+  color: black;
+}
+
+.support-info p {
+  margin: 5px 0;
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+/* Footer Bottom */
+.footer-bottom {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 20px 0;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.footer-bottom-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.copyright {
+  margin: 0;
+  opacity: 0.8;
+  font-size: 0.9rem;
+}
+
+.footer-bottom-links {
+  display: flex;
+  gap: 20px;
+}
+
+.footer-bottom-links a {
+  color: rgba(255, 255, 255, 0.7);
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+.footer-bottom-links a:hover {
+  color: black;
+}
+
+/* Emergency Floating Button */
+.emergency-floating-btn {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  z-index: 1000;
+}
+
+.panic-btn-floating {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 15px 20px;
+  background: linear-gradient(45deg, #ff6b6b, #ff8e8e);
+  border: none;
+  border-radius: 50px;
+  color: black;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(255, 107, 107, 0.4);
+  transition: all 0.3s ease;
+  animation: pulse 2s infinite;
+}
+
+.panic-btn-floating:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 25px rgba(255, 107, 107, 0.6);
+}
+
+.panic-icon {
+  font-size: 1.2rem;
+}
+
+.panic-text {
+  font-size: 0.9rem;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 4px 20px rgba(255, 107, 107, 0.4);
+  }
+  50% {
+    box-shadow: 0 4px 25px rgba(255, 107, 107, 0.7);
+  }
+  100% {
+    box-shadow: 0 4px 20px rgba(255, 107, 107, 0.4);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .footer-main .footer-container {
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+  }
+  
+  .brand-section {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 768px) {
+  .footer-main .footer-container {
+    grid-template-columns: 1fr;
+    gap: 30px;
+  }
+  
+  .footer-bottom-content {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+  }
+  
+  .emergency-floating-btn {
+    bottom: 20px;
+    right: 20px;
+  }
+  
+  .panic-btn-floating {
+    padding: 12px 18px;
+  }
+  
+  .panic-text {
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .footer-main {
+    padding: 30px 0 15px;
+  }
+  
+  .footer-container {
+    padding: 0 15px;
+  }
+  
+  .emergency-contact {
+    padding: 8px;
+  }
+  
+  .app-download {
+    gap: 8px;
+  }
+  
+  .download-btn {
+    padding: 10px 15px;
+  }
+}
+
+/* Extra Large Screens (Desktops >1200px) - Optimized for wide layouts */
+@media (min-width: 1200px) {
+  .footer-main .footer-container {
+    grid-template-columns: 2fr 1fr 1.5fr 1.5fr;
+    gap: 50px;
+  }
+  
+  .footer-logo h3 {
+    font-size: 1.8rem;
+  }
+}
+
+/* Large Tablets/Laptops (992px - 1199px) - Minor adjustments */
+@media (min-width: 992px) and (max-width: 1199px) {
+  .footer-main .footer-container {
+    grid-template-columns: 2fr 1fr 1fr 2fr; /* Emergency and apps together-ish */
+    gap: 35px;
+  }
+}
+
+/* Tablets (768px - 991px) - Improved 2-column stack */
+@media (max-width: 991px) {
+  .footer-main .footer-container {
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+  }
+  
+  .brand-section {
+    grid-column: 1 / -1; /* Full width for logo/social */
+  }
+  
+  .emergency-section {
+    grid-column: 1;
+  }
+}
+
+/* Portrait Tablets/Large Phones (481px - 767px) - Landscape phone support */
+@media (min-width: 481px) and (max-width: 767px) {
+  .footer-main {
+    padding: 35px 0 18px;
+  }
+  
+  .social-links {
+    gap: 12px;
+  }
+  
+  .social-link {
+    width: 45px;
+    height: 45px; /* Larger touch targets */
+  }
+}
+
+/* Small Mobile Phones (480px and down) - Single column, compact */
+@media (max-width: 480px) {
+  .footer-main {
+    padding: 25px 0 15px;
+  }
+  
+  .footer-container {
+    padding: 0 12px;
+  }
+  
+  .footer-main .footer-container {
+    gap: 25px;
+  }
+  
+  .footer-title {
+    font-size: 1rem;
+    margin-bottom: 15px;
+  }
+  
+  .footer-links li {
+    margin-bottom: 10px;
+  }
+  
+  .emergency-contact {
+    padding: 12px; /* Better touch */
+    gap: 10px;
+  }
+  
+  .contact-number {
+    font-size: 1rem;
+  }
+  
+  .download-btn {
+    padding: 12px 16px;
+    gap: 10px;
+  }
+  
+  .btn-icon {
+    font-size: 1.3rem;
+  }
+}
+
+/* Portrait Mobile Optimization (320px and down) - Ultra-compact */
+@media (max-width: 320px) {
+  .footer-container {
+    padding: 0 10px;
+  }
+  
+  .emergency-floating-btn {
+    bottom: 15px;
+    right: 15px;
+  }
+  
+  .panic-btn-floating {
+    padding: 12px 16px;
+    font-size: 0.9rem;
+  }
+  
+  .panic-text {
+    font-size: 0.75rem;
+  }
+}
+
+/* Landscape Orientation Adjustments */
+@media (orientation: landscape) and (max-height: 500px) {
+  .footer-main {
+    padding: 20px 0 15px;
+  }
+  
+  .footer-section {
+    padding-bottom: 10px;
+  }
+}

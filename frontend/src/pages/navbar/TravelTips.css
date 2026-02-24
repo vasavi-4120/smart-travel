@@ -1,0 +1,147 @@
+/* src/components/TravelTips.css */
+.travel-tips-page {
+  min-height: 100vh;
+  background-color: #f8f9fa;
+}
+
+/* .tips-header {
+  background: linear-gradient(135deg, #9eb9ec 0%, #699bf1 100%);
+} */
+
+.tips-hero {
+  background: linear-gradient(135deg, #9090ea 0%, #8A2BE2 100%);
+  background-size: cover;
+  position: relative;
+  z-index: 1;
+}
+
+.tips-hero::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 0;
+}
+
+.categories-card {
+  position: sticky;
+  top: 100px;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1) !important;
+}
+
+.category-item {
+  border-radius: 8px !important;
+  margin-bottom: 4px !important;
+  transition: all 0.3s ease !important;
+}
+
+.category-item:hover {
+  background-color: #f0f7ff !important;
+  transform: translateX(4px);
+}
+
+.category-item.Mui-selected {
+  background-color: #e3f2fd !important;
+  border-left: 4px solid #2196f3;
+}
+
+.category-icon {
+  padding: 8px;
+  background-color: #e3f2fd;
+  border-radius: 8px;
+  color: #2196f3;
+}
+
+.tip-card {
+  border-radius: 12px !important;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1) !important;
+  transition: all 0.3s ease !important;
+  border: 1px solid #e0e0e0;
+  cursor: pointer;
+}
+
+.tip-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15) !important;
+}
+
+.tip-card.expanded {
+  border-color: #2196f3;
+  box-shadow: 0 4px 20px rgba(33, 150, 243, 0.15) !important;
+}
+
+/* EMERGENCY CARD STYLES - MAKE SURE THESE ARE PRESENT */
+.emergency-info-card {
+  border-radius: 12px !important;
+  border: 2px solid #ff4444 !important;
+  background: linear-gradient(135deg, #fff5f5 0%, #ffeaea 100%) !important;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+
+.tip-details h3 {
+  color: #1e3c72;
+  margin-bottom: 12px;
+  font-size: 1.25rem;
+}
+
+.tip-details ul {
+  padding-left: 20px;
+  margin-bottom: 16px;
+}
+
+.tip-details li {
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.tip-details strong {
+  color: #1e3c72;
+}
+
+.filter-fab {
+  position: fixed !important;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1000;
+}
+
+/* Animation for tip expansion */
+.tip-details {
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .tips-hero h1 {
+    font-size: 2rem !important;
+  }
+  
+  .tips-hero h6 {
+    font-size: 1rem !important;
+  }
+  
+  .tip-card {
+    margin-bottom: 16px;
+  }
+}
