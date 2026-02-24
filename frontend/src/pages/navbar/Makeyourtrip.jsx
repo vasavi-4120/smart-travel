@@ -886,11 +886,11 @@ function Makeyourtrip() {
         {/* Submit */}
         {validationStatus === "approved" && (
           <button
-            type="button"
-            onClick={handleRegister}
+            type="submit"
             className="bg-blue-600 text-white font-semibold sm:w-auto w-full px-6 py-3 mx-86 rounded-full hover:bg-blue-700 transition"
+            disabled={loading}
           >
-            Register
+            {loading ? "Registering..." : "Register"}
           </button>
         )}
       </form>

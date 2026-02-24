@@ -408,19 +408,6 @@ const cancelTrip = async (trips) => {
     }
   };
 
-  // const getStatusColor = (status) => {
-  //   switch (status) {
-  //     case "active":
-  //       return "#ff9800";
-  //     case "responded":
-  //       return "#2196f3";
-  //     case "resolved":
-  //       return "#4caf50";
-  //     default:
-  //       return "#757575";
-  //   }
-  // };
-
   const getStatusColor = (status) => {
     switch (status) {
       case "Active":
@@ -529,7 +516,16 @@ const cancelTrip = async (trips) => {
                         /> */}
                       </TableCell>
                       <TableCell>
-                        <Button color="error" disabled={trip.status !== "Active"} onClick={() => cancelTrip(trip)}>
+                        <Button 
+                        color="error" 
+                        className={`
+    btn 
+    ${trip.status === "Active" 
+      ? 'bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-3 rounded-full shadow-md hover:shadow-lg transition-all duration-300' 
+      : 'bg-gray-300 text-gray-500 cursor-not-allowed py-1 px-3 rounded-full'
+    }
+  `}
+                        disabled={trip.status !== "Active"} onClick={() => cancelTrip(trip)}>
                           Cancel Trip
                         </Button>
                       </TableCell>
