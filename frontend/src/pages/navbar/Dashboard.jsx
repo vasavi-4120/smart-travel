@@ -64,6 +64,7 @@ import {
   useMap,
   Circle,
 } from "react-leaflet";
+import SafetyMap from "../../components/SafetyMap";
 
 import L from "leaflet";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
@@ -288,7 +289,7 @@ const Dashboard = () => {
     };
 
     fetchTrip();
-    
+
     intervalRef.current = setInterval(fetchTrip, 10000);
 
     return () => {
@@ -326,37 +327,34 @@ const Dashboard = () => {
   //   }
   // };
 
-const cancelTrip = async (trips) => {
-  try {
-    await axios.put(
-      `http://localhost:8000/api/trips/cancel-trip/${trips.tripId}`,
-      { reason: "User cancelled manually" },
-      { withCredentials: true }
-    );
+  const cancelTrip = async (trips) => {
+    try {
+      await axios.put(
+        `http://localhost:8000/api/trips/cancel-trip/${trips.tripId}`,
+        { reason: "User cancelled manually" },
+        { withCredentials: true },
+      );
 
-    alert("Trip Cancelled Successfully");
+      alert("Trip Cancelled Successfully");
 
-    // ✅ Update trips instantly without waiting for API refresh
-    setTrips((prevTrips) =>
-      prevTrips.map((t) =>
-        t.tripId === trips.tripId
-          ? { ...t, status: "Cancelled" }
-          : t
-      )
-    );
+      // ✅ Update trips instantly without waiting for API refresh
+      setTrips((prevTrips) =>
+        prevTrips.map((t) =>
+          t.tripId === trips.tripId ? { ...t, status: "Cancelled" } : t,
+        ),
+      );
 
-    // ✅ If it was active, reset activeTrip UI
-    if (activeTrip?.tripId === trips.tripId) {
-      setActiveTrip(null);
-      setLiveLocation(null);
-      setHistory([]);
-      setDestination(null);
+      // ✅ If it was active, reset activeTrip UI
+      if (activeTrip?.tripId === trips.tripId) {
+        setActiveTrip(null);
+        setLiveLocation(null);
+        setHistory([]);
+        setDestination(null);
+      }
+    } catch (error) {
+      console.error(error);
     }
-
-  } catch (error) {
-    console.error(error);
-  }
-};
+  };
 
   const FitBounds = ({ history, destination, liveLocation }) => {
     const map = useMap();
@@ -516,16 +514,19 @@ const cancelTrip = async (trips) => {
                         /> */}
                       </TableCell>
                       <TableCell>
-                        <Button 
-                        color="error" 
-                        className={`
+                        <Button
+                          color="error"
+                          className={`
     btn 
-    ${trip.status === "Active" 
-      ? 'bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-3 rounded-full shadow-md hover:shadow-lg transition-all duration-300' 
-      : 'bg-gray-300 text-gray-500 cursor-not-allowed py-1 px-3 rounded-full'
+    ${
+      trip.status === "Active"
+        ? "bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-3 rounded-full shadow-md hover:shadow-lg transition-all duration-300"
+        : "bg-gray-300 text-gray-500 cursor-not-allowed py-1 px-3 rounded-full"
     }
   `}
-                        disabled={trip.status !== "Active"} onClick={() => cancelTrip(trip)}>
+                          disabled={trip.status !== "Active"}
+                          onClick={() => cancelTrip(trip)}
+                        >
                           Cancel Trip
                         </Button>
                       </TableCell>
@@ -741,9 +742,9 @@ const cancelTrip = async (trips) => {
             </Card>
 
             {/* Safety Map Preview */}
-            <Card className="dashboard-card">
+            {/* <Card className="dashboard-card">
               <CardContent>
-                {/* <Typography variant="h6" gutterBottom className="card-title">
+                <Typography variant="h6" gutterBottom className="card-title">
                   Safety Heat Map
                 </Typography>
                 <Box className="map-preview">
@@ -764,8 +765,8 @@ const cancelTrip = async (trips) => {
                       Open Full Map
                     </Button>
                   </Box>
-                </Box> */}
-                <Box
+                </Box> 
+                 <Box
                   display="flex"
                   justifyContent="space-between"
                   alignItems="center"
@@ -790,35 +791,12 @@ const cancelTrip = async (trips) => {
                   </Typography>
                 </Box>
               </CardContent>
-            </Card>
+            </Card> */}
+            <SafetyMap/>
           </Grid>
 
           {/* Right Column */}
           <Grid size={{ xs: 12, lg: 4 }}>
-            {/* Emergency Contacts */}
-            {/* <Card sx={{ mb: 3 }} className="dashboard-card">
-              <CardContent>
-                <Typography variant="h6" gutterBottom className="card-title">
-                  Emergency Contacts
-                </Typography>
-                <List>
-                  {emergencyContacts.map((contact, index) => (
-                    <ListItem key={index} className="contact-item">
-                      <ListItemIcon sx={{ color: "primary.main" }}>
-                        {contact.icon}
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={contact.name}
-                        secondary={contact.number}
-                      />
-                      <IconButton size="small" color="primary">
-                        <Phone />
-                      </IconButton>
-                    </ListItem>
-                  ))}
-                </List>
-              </CardContent>
-            </Card> */}
 
             {/* Quick Safety Tips */}
             <Card sx={{ mb: 3 }} className="dashboard-card">
@@ -876,7 +854,7 @@ const cancelTrip = async (trips) => {
         </Grid>
 
         {/* Live Alerts Feed */}
-        {emergencyAlerts.length > 0 && (
+        {/* {emergencyAlerts.length > 0 && (
           <Card sx={{ mt: 3 }} className="alerts-feed">
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -904,7 +882,7 @@ const cancelTrip = async (trips) => {
               </Box>
             </CardContent>
           </Card>
-        )}
+        )} */}
       </Container>
     </div>
   );

@@ -12,7 +12,7 @@ function NotFound() {
         </p>
         {/* <Link to="/">Go Home</Link> */}
         <button className='p-2 btn btn-primary fs-5 mb-5' 
-        style={{width:"15%" , margin:"0 auto"}} 
+        style={{width:"15%" , margin:"0 auto",backgroundColor:"#7c3aed",border:"none"}} 
         onClick={()=> navigate("/")}>
             Go Home
         </button>

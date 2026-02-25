@@ -137,7 +137,7 @@ function Profile() {
   if (loading) return <p className="text-center mt-10">Loading...</p>;
 
   return (
-    <div className="flex flex-col lg:flex-row items-center justify-center my-16 gap-12 px-2">
+    <div className="flex flex-col lg:flex-row items-center justify-center my-14 gap-12 px-2">
       {/* PROFILE CARD */}
       <div className="bg-white rounded-2xl shadow-lg border border-violet-200 mx-4 p-6 w-full lg:w-96 transition hover:shadow-violet-200 hover:shadow-xl">
         <div className="flex items-center justify-between mb-6">
