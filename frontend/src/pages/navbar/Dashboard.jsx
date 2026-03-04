@@ -96,6 +96,8 @@ const Dashboard = () => {
 
   const intervalRef = useRef(null);
 
+  const [routeCoords, setRouteCoords] = useState([]);
+
   const destinationIcon = new L.Icon({
     iconUrl:
       "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
@@ -282,6 +284,7 @@ const Dashboard = () => {
           setLiveLocation(null);
           setHistory([]);
           setDestination(null);
+          setRouteCoords([]); 
         }
       } catch (err) {
         console.log(err);
@@ -296,6 +299,43 @@ const Dashboard = () => {
       clearInterval(intervalRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    const fetchRoute = async () => {
+      if (!liveLocation || !destination) return;
+
+      try {
+        const response = await axios.post(
+          "https://api.openrouteservice.org/v2/directions/driving-car/geojson",
+          {
+            coordinates: [
+              [Number(liveLocation.lng), Number(liveLocation.lat)],
+              [Number(destination.lng), Number(destination.lat)],
+            ],
+          },
+          {
+            headers: {
+              Authorization: import.meta.env.VITE_ORS_API_KEY,
+              "Content-Type": "application/json",
+            },
+          },
+        );
+
+        const coords = response.data.features[0].geometry.coordinates.map(
+          (coord) => [
+            coord[1], // lat
+            coord[0], // lng
+          ],
+        );
+
+        setRouteCoords(coords);
+      } catch (error) {
+        console.error("Route API Error:", error);
+      }
+    };
+
+    fetchRoute();
+  }, [liveLocation, destination]);
 
   // const cancelTrip = async (trip) => {
   //   try {
@@ -556,6 +596,22 @@ const Dashboard = () => {
           />
 
           {liveLocation && (
+  <Marker position={[Number(liveLocation.lat), Number(liveLocation.lng)]}>
+    <Popup>Current Location</Popup>
+  </Marker>
+)}
+
+{liveLocation && destination && routeCoords.length > 0 && (
+  <Polyline
+    positions={routeCoords}
+    pathOptions={{
+      color: "#2563eb",
+      weight: 6,
+    }}
+  />
+)}
+
+          {/* {liveLocation && (
             <Marker
               position={[Number(liveLocation.lat), Number(liveLocation.lng)]}
             >
@@ -564,17 +620,26 @@ const Dashboard = () => {
           )}
 
           {liveLocation && destination && (
+            {routeCoords.length > 0 && (
             <Polyline
-              positions={[
-                [Number(liveLocation.lat), Number(liveLocation.lng)],
-                [Number(destination.lat), Number(destination.lng)],
-              ]}
+              positions={routeCoords}
               pathOptions={{
-                color: "green",
-                weight: 5,
+                color: "#2563eb",
+                weight: 6,
               }}
             />
           )}
+            // <Polyline
+            //   positions={[
+            //     [Number(liveLocation.lat), Number(liveLocation.lng)],
+            //     [Number(destination.lat), Number(destination.lng)],
+            //   ]}
+            //   pathOptions={{
+            //     color: "green",
+            //     weight: 5,
+            //   }}
+            // />
+          )} */}
 
           {!liveLocation && (
             <Circle
@@ -584,19 +649,19 @@ const Dashboard = () => {
             />
           )}
 
-          {history.length > 0 && (
+          {/* {history.length > 0 && (
             <Polyline
               positions={history.map((loc) => [
                 Number(loc.lat),
                 Number(loc.lng),
               ])}
               pathOptions={{
-                color: "#ff0000",
+                color: "#2563eb",
                 weight: 6,
                 opacity: 0.9,
               }}
             />
-          )}
+          )} */}
 
           {destination &&
             !isNaN(Number(destination.lat)) &&
@@ -792,12 +857,11 @@ const Dashboard = () => {
                 </Box>
               </CardContent>
             </Card> */}
-            <SafetyMap/>
+            <SafetyMap />
           </Grid>
 
           {/* Right Column */}
           <Grid size={{ xs: 12, lg: 4 }}>
-
             {/* Quick Safety Tips */}
             <Card sx={{ mb: 3 }} className="dashboard-card">
               <CardContent>

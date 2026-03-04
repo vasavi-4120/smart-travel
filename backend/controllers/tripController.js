@@ -1,12 +1,18 @@
 const TripModel = require("../model/TripModel.js");
+const User = require("../model/UserModel");
+const sendEmail = require("../util/sendEmail");
 const { v4: uuidv4 } = require("uuid");
 const axios = require("axios");
+const { checkWeatherAlert } = require("../util/weatherAlert");
+const { getWeatherData } = require("../util/weatherService.js");
 
 exports.registerTrip = async (req, res) => {
   try {
     if (!req.user) {
       return res.status(401).json({ message: "User not authenticated" });
     }
+
+    const userId = req.user._id;
 
     const {
       traveler,
@@ -66,17 +72,116 @@ exports.registerTrip = async (req, res) => {
       message: "Trip registered successfully",
       trip: newTrip,
     });
+
+setTimeout(async () => {
+  try {
+    console.log("Weather email process started...");
+
+    const weatherData = await getWeatherData(to.lat, to.lng);
+
+    if (!weatherData) {
+      console.log("Weather data not available");
+      return;
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      console.log("User not found");
+      return;
+    }
+
+    const weatherCondition = weatherData.weather?.[0]?.main || "Unknown";
+    const temperature = weatherData.main?.temp || "N/A";
+
+    const emailTemplate = `
+      <div style="font-family: Arial; padding: 20px;">
+        <h2>Weather Update for Your Trip</h2>
+        <p><strong>Destination:</strong> ${to.name}</p>
+        <p><strong>Condition:</strong> ${weatherCondition}</p>
+        <p><strong>Temperature:</strong> ${temperature}°C</p>
+        <p>Have a safe journey!</p>
+      </div>
+    `;
+
+    await sendEmail(
+      user.email,
+      "Weather Update for Your Upcoming Trip",
+      emailTemplate
+    );
+
+    console.log("Weather email sent successfully");
+  } catch (err) {
+    console.error("Weather email error:", err);
+  }
+}, 1000);
+
+//     setImmediate(async () => {
+//   try {
+//     const weatherData = await getWeatherData(to.lat, to.lng);
+
+//     const alertMessage = checkWeatherAlert(weatherData);
+
+//     console.log("Weather Data:", weatherData);
+// console.log("Alert Message:", alertMessage);
+
+//     // if (alertMessage) {
+//     //   const user = await User.findById(userId);
+
+//     //   if (!user) return;
+
+//     //   const emailTemplate = `
+//     //     <div style="font-family: Arial; padding: 20px;">
+//     //       <h2>Weather Alert for Your Trip</h2>
+//     //       <p><strong>Destination:</strong> ${to.name}</p>
+//     //       <p>${alertMessage}</p>
+//     //       <p>Please plan accordingly and stay safe.</p>
+//     //     </div>
+//     //   `;
+
+//     //   await sendEmail(
+//     //     user.email,
+//     //     "Weather Alert for Your Upcoming Trip",
+//     //     emailTemplate
+//     //   );
+
+//     //   console.log("Weather alert email sent successfully");
+//     // } else {
+//     //   console.log("No weather alert condition met");
+//     // }
+
+//     const user = await User.findById(userId);
+// if (!user) return;
+
+// const weatherCondition = weatherData.weather[0].main;
+// const temperature = weatherData.main.temp;
+
+// const emailTemplate = `
+//   <div style="font-family: Arial; padding: 20px;">
+//     <h2>Weather Update for Your Trip</h2>
+//     <p><strong>Destination:</strong> ${to.name}</p>
+//     <p><strong>Condition:</strong> ${weatherCondition}</p>
+//     <p><strong>Temperature:</strong> ${temperature}°C</p>
+//     <p>Have a safe journey!</p>
+//   </div>
+// `;
+
+// await sendEmail(
+//   user.email,
+//   "Weather Update for Your Upcoming Trip",
+//   emailTemplate
+// );
+
+// console.log("Weather email sent successfully");
+//   } catch (err) {
+//     console.error("Weather alert error:", err);
+//   }
+// }
+// );
   } catch (error) {
     console.error(error);
     res.status(400).json({ error: error.message });
   }
 };
-
-// function combineDateAndTime(date, time) {
-//   if (!date || !time) return null;
-
-//   return new Date(`${date.toISOString().split("T")[0]}T${time}:00+05:30`);
-// }
 
 function combineDateAndTime(date, time) {
   if (!date || !time) return null;
@@ -132,69 +237,29 @@ exports.getUserTrips = async (req, res) => {
   }
 };
 
-// exports.cancelTrip = async (req, res) => {
-//   try {
-//     const { tripId } = req.params;
-//     const { reason } = req.body;
-
-//     const trip = await TripModel.findOne({
-//       tripId,
-//       userId: req.user._id,
-//     });
-
-//     if (!trip) {
-//       return res.status(404).json({ message: "Trip not found" });
-//     }
-
-//     if (trip.status === "Cancelled") {
-//       await trip.save();
-//       return res.status(400).json({ message: "Trip already cancelled" });
-//     }
-
-//     console.log("REQ USER:", req.user);
-//     console.log("PARAM ID:", tripId);
-
-//     trip.status = "Cancelled";
-//     trip.cancelledAt = new Date();
-//     trip.cancelReason = reason;
-
-//     await trip.save();
-
-//     console.log("Trip saved with status:", trip.status);
-
-//     res.status(200).json({
-//       message: "Trip cancelled successfully",
-//       trip,
-//     });
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({ message: error.message });
-//   }
-// };
-
 exports.cancelTrip = async (req, res) => {
   try {
     const { tripId } = req.params; // or req.params.id depending on your route
     const { reason } = req.body;
 
-    console.log('=== CANCEL TRIP DEBUG ===');
-    console.log('Params:', req.params);
-    console.log('Body:', req.body);
-    console.log('TripId:', tripId);
-    console.log('Reason:', reason);
-    console.log('User:', req.user?._id);
-    console.log('========================');
+    console.log("=== CANCEL TRIP DEBUG ===");
+    console.log("Params:", req.params);
+    console.log("Body:", req.body);
+    console.log("TripId:", tripId);
+    console.log("Reason:", reason);
+    console.log("User:", req.user?._id);
+    console.log("========================");
 
     // Validate inputs
     if (!tripId) {
-      return res.status(400).json({ 
-        message: "Trip ID is required" 
+      return res.status(400).json({
+        message: "Trip ID is required",
       });
     }
 
     if (!req.user || !req.user._id) {
-      return res.status(401).json({ 
-        message: "User not authenticated" 
+      return res.status(401).json({
+        message: "User not authenticated",
       });
     }
 
@@ -204,181 +269,55 @@ exports.cancelTrip = async (req, res) => {
       userId: req.user._id,
     });
 
-    console.log('Found trip:', trip ? 'Yes' : 'No');
-    
+    console.log("Found trip:", trip ? "Yes" : "No");
+
     if (!trip) {
-      return res.status(404).json({ 
-        message: "Trip not found" 
+      return res.status(404).json({
+        message: "Trip not found",
       });
     }
 
-    console.log('Current trip status:', trip.status);
+    console.log("Current trip status:", trip.status);
 
     // Check if already cancelled
     if (trip.status === "Cancelled") {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: "Trip already cancelled",
-        trip: trip 
+        trip: trip,
       });
     }
 
     // Update the trip
     trip.status = "Cancelled";
     trip.cancelledAt = new Date();
-    trip.cancelReason = reason || 'No reason provided';
+    trip.cancelReason = reason || "No reason provided";
 
     // Save with validation disabled temporarily for testing
     const savedTrip = await trip.save({ validateBeforeSave: false });
-    
-    console.log('Save result:', {
+
+    console.log("Save result:", {
       status: savedTrip.status,
       cancelledAt: savedTrip.cancelledAt,
-      cancelReason: savedTrip.cancelReason
+      cancelReason: savedTrip.cancelReason,
     });
 
     res.status(200).json({
       message: "Trip cancelled successfully",
-      trip: savedTrip
+      trip: savedTrip,
     });
-
   } catch (error) {
-    console.error('Cancel trip error details:', {
+    console.error("Cancel trip error details:", {
       message: error.message,
       stack: error.stack,
-      name: error.name
+      name: error.name,
     });
-    
-    res.status(500).json({ 
-      message: "Failed to cancel trip", 
-      error: error.message 
+
+    res.status(500).json({
+      message: "Failed to cancel trip",
+      error: error.message,
     });
   }
 };
-
-// exports.cancelTrip = async (req, res) => {
-//   try {
-//     const { tripId } = req.params;
-//     const { reason } = req.body;
-
-//     console.log('Cancelling trip:', tripId);
-//     console.log('User:', req.user._id);
-//     console.log('Reason:', reason);
-
-//     const trip = await TripModel.findOne({
-//       tripId: tripId,
-//       userId: req.user._id,
-//     });
-
-//     if (!trip) {
-//       return res.status(404).json({ message: "Trip not found" });
-//     }
-
-//     // Check if already cancelled
-//     if (trip.status === "Cancelled") {
-//       return res.status(400).json({ 
-//         message: "Trip already cancelled",
-//         trip: trip 
-//       });
-//     }
-
-//     // Check if trip can be cancelled (optional)
-//     const startDateTime = combineDateAndTime(trip.startDate, trip.startTime);
-//     const now = new Date();
-    
-//     if (now > startDateTime) {
-//       return res.status(400).json({ 
-//         message: "Cannot cancel trip that has already started" 
-//       });
-//     }
-
-//     // Update the trip
-//     trip.status = "Cancelled";
-//     trip.cancelledAt = new Date();
-//     trip.cancelReason = reason || 'No reason provided';
-
-//     // Save the trip
-//     const savedTrip = await trip.save();
-    
-//     console.log('Trip cancelled successfully:', {
-//       tripId: savedTrip.tripId,
-//       status: savedTrip.status,
-//       cancelledAt: savedTrip.cancelledAt,
-//       cancelReason: savedTrip.cancelReason
-//     });
-
-//     res.status(200).json({
-//       message: "Trip cancelled successfully",
-//       trip: {
-//         tripId: savedTrip.tripId,
-//         status: savedTrip.status,
-//         cancelledAt: savedTrip.cancelledAt,
-//         cancelReason: savedTrip.cancelReason,
-//         from: savedTrip.from,
-//         to: savedTrip.to,
-//         startDate: savedTrip.startDate,
-//         startTime: savedTrip.startTime
-//       }
-//     });
-
-//   } catch (error) {
-//     console.error('Cancel trip error:', error);
-//     res.status(500).json({ 
-//       message: "Failed to cancel trip", 
-//       error: error.message 
-//     });
-//   }
-// };
-
-// exports.trackLocation = async (req, res) => {
-//   try {
-//     const { tripId, lat, lng } = req.body;
-
-//     const trip = await TripModel.findOne({
-//       tripId,
-//       userId: req.user._id,
-//     });
-
-//     if (!trip) {
-//       return res.status(404).json({ message: "Trip not found" });
-//     }
-
-//     // 🛑 STOP if cancelled
-//     if (trip.status === "Cancelled") {
-//       return res.status(400).json({
-//         message: "Trip cancelled. Tracking stopped.",
-//       });
-//     }
-
-//     const start = combineDateAndTime(trip.startDate, trip.startTime);
-//     const end = combineDateAndTime(trip.endDate, trip.endTime);
-
-//     const realTimeStatus =
-//       start && end ? calculateStatus(start, end) : trip.status;
-
-//     if (realTimeStatus === "Completed") {
-//       trip.status = "Completed";
-//       await trip.save();
-//       return res.status(400).json({
-//         message: "Trip completed. Tracking stopped.",
-//       });
-//     }
-
-//     trip.liveLocation = { lat, lng };
-//     trip.locationHistory.push({
-//       lat,
-//       lng,
-//       timestamp: new Date(),
-//     });
-
-//     trip.status = realTimeStatus;
-
-//     await trip.save();
-
-//     res.status(200).json({ message: "Location stored" });
-//   } catch (error) {
-//     res.status(500).json({ error: error.message });
-//   }
-// };
 
 exports.trackLocation = async (req, res) => {
   try {
@@ -393,7 +332,6 @@ exports.trackLocation = async (req, res) => {
       return res.status(404).json({ message: "Trip not found" });
     }
 
-    // 🛑 HARD STOP if Cancelled
     if (trip.status === "Cancelled") {
       return res.status(200).json({
         message: "Trip already cancelled. No tracking allowed.",
@@ -406,7 +344,6 @@ exports.trackLocation = async (req, res) => {
     const realTimeStatus =
       start && end ? calculateStatus(start, end) : trip.status;
 
-    // ✅ Only change to Completed
     if (realTimeStatus === "Completed") {
       trip.status = "Completed";
       await trip.save();
@@ -415,9 +352,7 @@ exports.trackLocation = async (req, res) => {
       });
     }
 
-    // ❌ REMOVE THIS LINE:
-    // trip.status = realTimeStatus;
-
+    // ✅ Save location
     trip.liveLocation = { lat, lng };
     trip.locationHistory.push({
       lat,
@@ -427,8 +362,85 @@ exports.trackLocation = async (req, res) => {
 
     await trip.save();
 
+    // ===============================
+    // 🌦 WEATHER ALERT LOGIC ADDED
+    // ===============================
+
+    // 🌦 GET CURRENT WEATHER
+const weatherData = await getWeatherData(lat, lng);
+
+if (!weatherData) {
+  return res.status(200).json({ message: "Location stored" });
+}
+
+// const weatherCondition = weatherData.weather?.[0]?.main || "Unknown";
+const weatherCondition = weatherData.weather?.[0]?.description || "Unknown";
+const temperature = weatherData.main?.temp || "N/A";
+
+console.log("Current Weather:", weatherCondition);
+
+// ✅ SEND EMAIL ONLY IF WEATHER CHANGED
+if (trip.lastWeatherCondition !== weatherCondition) {
+
+  console.log("Weather changed! Sending email...");
+
+  const user = await User.findById(trip.userId);
+
+  if (user) {
+    await sendEmail(
+      user.email,
+      "🌦 Live Weather Update",
+      `
+      <div style="font-family: Arial; padding: 20px;">
+        <h2>Weather Update During Your Trip</h2>
+        <p><strong>Location:</strong> ${lat}, ${lng}</p>
+        <p><strong>Condition:</strong> ${weatherCondition}</p>
+        <p><strong>Temperature:</strong> ${temperature}°C</p>
+        <p>Travel safely!</p>
+      </div>
+      `
+    );
+
+    console.log("Weather update email sent!");
+
+    // ✅ Update last weather condition
+    trip.lastWeatherCondition = weatherCondition;
+    await trip.save();
+  }
+}
+
+    // const weatherData = await getWeatherData(lat, lng);
+    // const alertMessage = checkWeatherAlert(weatherData);
+
+    // console.log("Weather check:", alertMessage);
+
+    // if (trip.lastWeatherCondition !== weatherCondition)
+
+    // if (alertMessage) {
+    //   const user = await User.findById(trip.userId);
+
+    //   if (user) {
+    //     await sendEmail(
+    //       user.email,
+    //       "⚠️ Live Weather Alert",
+    //       `
+    //         <div style="font-family: Arial; padding: 20px;">
+    //           <h2>Weather Alert During Your Trip</h2>
+    //           <p><strong>Location:</strong> ${lat}, ${lng}</p>
+    //           <p>${alertMessage}</p>
+    //           <p>Please stay safe and take precautions.</p>
+    //         </div>
+    //       `
+    //     );
+
+    //     console.log("Weather alert email sent!");
+    //   }
+    // }
+
     res.status(200).json({ message: "Location stored" });
+
   } catch (error) {
+    console.error("Track Location Error:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -451,7 +463,12 @@ exports.geocodeLocation = async (req, res) => {
   try {
     const { place } = req.query;
 
+    if (!place) {
+      return res.status(400).json({ message: "Place is required" });
+    }
+
     if (cache[place]) {
+      console.log("Cache hit");
       return res.json(cache[place]);
     }
 
@@ -466,18 +483,23 @@ exports.geocodeLocation = async (req, res) => {
         headers: {
           "User-Agent": "SmartTouristApp/1.0",
         },
-      },
+      }
     );
 
     if (response.data.length === 0) {
       return res.status(404).json({ message: "Location not found" });
     }
 
-    res.json({
-      lat: response.data[0].lat,
-      lng: response.data[0].lon,
-    });
+    const result = {
+      lat: Number(response.data[0].lat),
+      lng: Number(response.data[0].lon),
+    };
+
+    cache[place] = result; // ✅ store in cache
+
+    res.json(result);
   } catch (error) {
+    console.error("Geocode Error:", error.message);
     res.status(500).json({ error: error.message });
   }
 };

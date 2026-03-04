@@ -201,6 +201,9 @@ const TripSchema = new mongoose.Schema(
         timestamp: { type: Date, default: Date.now },
       },
     ],
+    lastWeatherCondition: {
+      type: String,
+    },
   },
   { timestamps: true },
 );
@@ -232,7 +235,7 @@ TripSchema.pre("save", async function () {
   if (this.status === "Cancelled") {
     return;
   }
-  
+
   if (this.startDate && this.startTime && this.endDate && this.endTime) {
     const startDateTime = combineDateAndTime(this.startDate, this.startTime);
     const endDateTime = combineDateAndTime(this.endDate, this.endTime);
