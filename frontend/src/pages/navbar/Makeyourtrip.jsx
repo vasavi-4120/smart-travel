@@ -50,7 +50,9 @@ function Makeyourtrip() {
       lat: "",
       lng: "",
     },
-    meansofTransport: "",
+    accommodation: "",
+    purposeOfWork: "",
+    meansOfTransport: "",
     startDate: "",
     endDate: "",
     startTime: "",
@@ -260,7 +262,11 @@ function Makeyourtrip() {
           lat: toCoords.lat,
           lng: toCoords.lng,
         },
+        accommodation: formData.accommodation,
+        purposeOfWork: formData.purposeOfWork,
+        meansOfTransport: formData.meansOfTransport,
         peopleTravel: Number(formData.peopleTravel),
+        numberOfDaysStaying: Number(formData.numberOfDaysStaying),
         startDate: formData.startDate
           ? new Date(formData.startDate).toISOString()
           : undefined,
@@ -454,701 +460,557 @@ function Makeyourtrip() {
 
   return (
     // <div className="flex mt-20 mb-20 p-8 border border-gray-200 rounded-lg max-w-4xl mx-auto shadow-lg bg-white">
-      <div className="w-full overflow-hidden">
+    <div className="w-full overflow-hidden">
       <div className="w-full px-4 sm:px-6 lg:px-8 mt-10 mb-10">
-  <div className="border border-gray-200 rounded-lg shadow-lg bg-white 
-  max-w-5xl mx-auto p-4 sm:p-6 lg:p-8">
-      {/* <form className="flex flex-col gap-6" onSubmit={handleRegister}> */}
-        <form className="flex flex-col gap-6 w-full" onSubmit={handleRegister}>
-        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-center text-violet-600">
-          Make Your Trip For Safe Journey
-        </h1>
-
-        {/* Personal Info */}
-        <section className="flex flex-col gap-4">
-          <h2 className="flex gap-1 items-center text-lg font-semibold text-gray-700">
-            <FaUserPlus />
-            Personal Information
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block mb-1">Name:</label>
-              <input
-                type="text"
-                // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                className="w-full border border-gray-400 rounded px-3 py-2 
-focus:outline-none focus:ring-2 focus:ring-blue-500"
-                onChange={(e) =>
-                  handleChange("traveler", "name", e.target.value)
-                }
-                placeholder="Enter your name"
-              />
-            </div>
-            <div>
-              <label className="block mb-1">Email:</label>
-              <input
-                type="email"
-                // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                className="w-full border border-gray-400 rounded px-3 py-2 
-focus:outline-none focus:ring-2 focus:ring-blue-500"
-                onChange={(e) =>
-                  handleChange("traveler", "email", e.target.value)
-                }
-                placeholder="Enter your email"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block mb-1">Date Of Birth:</label>
-              <input
-                type="date"
-                // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                className="w-full border border-gray-400 rounded px-3 py-2 
-focus:outline-none focus:ring-2 focus:ring-blue-500"
-                onChange={(e) =>
-                  handleChange("traveler", "dob", e.target.value)
-                }
-              />
-            </div>
-            <div>
-              <label className="block mb-1">Gender:</label>
-              <select
-                // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                className="w-full border border-gray-400 rounded px-3 py-2 
-focus:outline-none focus:ring-2 focus:ring-blue-500"
-                onChange={(e) =>
-                  handleChange("traveler", "gender", e.target.value)
-                }
-              >
-                <option value="">Select gender</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block mb-1">Age:</label>
-              <input
-                // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                className="w-full border border-gray-400 rounded px-3 py-2 
-focus:outline-none focus:ring-2 focus:ring-blue-500"
-                onChange={(e) =>
-                  handleChange("traveler", "age", e.target.value)
-                }
-                placeholder="Enter your age"
-              />
-            </div>
-            <div>
-              <label className="block mb-1">Nationality:</label>
-              <select
-                // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                className="w-full border border-gray-400 rounded px-3 py-2 
-focus:outline-none focus:ring-2 focus:ring-blue-500"
-                onChange={(e) =>
-                  handleChange("traveler", "nationality", e.target.value)
-                }
-              >
-                <option value="india">Indian</option>
-                <option value="united states">United States</option>
-                <option value="australia">Australia</option>
-                <option value="united kingdom">United Kingdom</option>
-                <option value="Canada">Canada</option>
-                <option value="iran">Iran</option>
-                <option value="iraq">Iraq</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="block mb-1">Address:</label>
-            <input
-              // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-              className="w-full border border-gray-400 rounded px-3 py-2 
-focus:outline-none focus:ring-2 focus:ring-blue-500"
-              onChange={(e) =>
-                handleChange("traveler", "address", e.target.value)
-              }
-              placeholder="Enter your address"
-            />
-          </div>
-        </section>
-
-        <section className="flex flex-col gap-4">
-          <h2 className="flex gap-1 items-center text-lg font-semibold text-gray-700">
-            <BiSolidContact />
-            Contact Details
-          </h2>
-          {/* <div className="grid grid-cols-2 gap-4"> */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block mb-1">Mobile Number:</label>
-              <input
-                type="tel"
-                // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                className="w-full border border-gray-400 rounded px-3 py-2 
-focus:outline-none focus:ring-2 focus:ring-blue-500"
-                onChange={(e) =>
-                  handleChange("contactDetails", "mobileNumber", e.target.value)
-                }
-                placeholder="Enter your 10-digit mobile number without country code"
-              />
-            </div>
-            <div></div>
-            <div>
-              <label className="block mb-1">Friend 1 :</label>
-              <input
-                type="text"
-                // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                className="w-full border border-gray-400 rounded px-3 py-2 
-focus:outline-none focus:ring-2 focus:ring-blue-500"
-                onChange={(e) =>
-                  handleChange("contactDetails", "friend1", e.target.value)
-                }
-                placeholder="Enter Friend Name"
-              />
-            </div>
-            <div>
-              <label className="block mb-1">Emergency Contact 1 :</label>
-              <input
-                type="tel"
-                // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                className="w-full border border-gray-400 rounded px-3 py-2 
-focus:outline-none focus:ring-2 focus:ring-blue-500"
-                onChange={(e) =>
-                  handleChange(
-                    "contactDetails",
-                    "emergencyContact1",
-                    e.target.value,
-                  )
-                }
-                placeholder="Enter your 10-digit mobile number without country code"
-              />
-            </div>
-            <div>
-              <label className="block mb-1">Friend 2 :</label>
-              <input
-                type="text"
-                // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                className="w-full border border-gray-400 rounded px-3 py-2 
-focus:outline-none focus:ring-2 focus:ring-blue-500"
-                onChange={(e) =>
-                  handleChange("contactDetails", "friend2", e.target.value)
-                }
-                placeholder="Enter Friend Name"
-              />
-            </div>
-            <div>
-              <label className="block mb-1">Emergency Contact 2 :</label>
-              <input
-                type="tel"
-                // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                className="w-full border border-gray-400 rounded px-3 py-2 
-focus:outline-none focus:ring-2 focus:ring-blue-500"
-                onChange={(e) =>
-                  handleChange(
-                    "contactDetails",
-                    "emergencyContact2",
-                    e.target.value,
-                  )
-                }
-                placeholder="Enter your 10-digit mobile number without country code"
-              />
-            </div>
-            <div>
-              <label className="block mb-1">RelationShip :</label>
-              <select
-                // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                className="w-full border border-gray-400 rounded px-3 py-2 
-focus:outline-none focus:ring-2 focus:ring-blue-500"
-                onChange={(e) =>
-                  handleChange("contactDetails", "relationship", e.target.value)
-                }
-              >
-                <option value="">Select relation</option>
-                <option value="father">Father</option>
-                <option value="mother">Mother</option>
-                <option value="brother">Brother</option>
-                <option value="sister">Sister</option>
-                <option value="spouse">Spouse</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-            <div>
-              <label className="block mb-1">RelationShip Contact :</label>
-              <input
-                type="tel"
-                // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                className="w-full border border-gray-400 rounded px-3 py-2 
-focus:outline-none focus:ring-2 focus:ring-blue-500"
-                onChange={(e) =>
-                  handleChange(
-                    "contactDetails",
-                    "relationshipContact",
-                    e.target.value,
-                  )
-                }
-                placeholder="Enter your 10-digit mobile number without country code"
-              />
-            </div>
-          </div>
-        </section>
-
-        {/* Identity Proof */}
-        <section className="flex flex-col gap-4">
-          <h2 className="flex gap-2 items-center text-lg font-semibold text-gray-700">
-            <GrValidate />
-            Identity Proof
-          </h2>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block mb-1">Identity Proof</label>
-              <select
-                // className="border border-gray-400 rounded px-3 py-2 w-full"
-                className="w-full border border-gray-400 rounded px-3 py-2 
-focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Select identity proof type"
-                onChange={(e) => {
-                  const value = e.target.value;
-                  handleChange("proof", "identityProof", value);
-                  setIdentityProof(value);
-                }}
-              >
-                <option value="">Select</option>
-                <option value="PAN">PAN</option>
-                <option value="Aadhaar">Aadhaar</option>
-                <option value="Passport">Passport</option>
-                <option value="VoterID">VoterID</option>
-                <option value="DrivingLicense">Driving License</option>
-              </select>
-            </div>
-            <div>
-              <label className="block mb-1">Proof Number</label>
-              <input
-                // className="border border-gray-400 rounded px-3 py-2 w-full"
-                className="w-full border border-gray-400 rounded px-3 py-2 
-focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter proof number"
-                onChange={(e) => {
-                  const value = e.target.value;
-                  handleChange("proof", "proofNumber", value);
-                  setProofNumber(value);
-                }}
-              />
-            </div>
-
-            <div>
-              <label className="block mb-1">Proof Image</label>
-              <input
-                type="file"
-                accept="image/*"
-                // className="border border-gray-400 rounded px-3 py-2 w-full"
-                className="w-full border border-gray-400 rounded px-3 py-2 
-focus:outline-none focus:ring-2 focus:ring-blue-500"
-                onChange={handleProofImageUpload}
-              />
-            </div>
-          </div>
-
-          {/* Message display - added for better UX */}
-          {message && (
-            <div
-              className={`text-center p-2 rounded ${
-                validationStatus === "approved"
-                  ? "bg-green-100 text-green-700"
-                  : validationStatus === "rejected"
-                    ? "bg-red-100 text-red-700"
-                    : "bg-yellow-100 text-yellow-700"
-              }`}
-            >
-              {message}
-            </div>
-          )}
-
-          <button
-            onClick={handleValidate}
-            // className="bg-blue-600 text-white font-semibold sm:w-auto w-full px-3 py-3 mx-86 rounded-full hover:bg-blue-700 transition"
-            className="bg-blue-600 text-white font-semibold w-full sm:w-auto 
-px-6 py-3 mx-auto rounded-full hover:bg-blue-700 transition"
-            disabled={loading}
+        <div
+          className="border border-gray-200 rounded-lg shadow-lg bg-white 
+  max-w-5xl mx-auto p-4 sm:p-6 lg:p-8"
+        >
+          {/* <form className="flex flex-col gap-6" onSubmit={handleRegister}> */}
+          <form
+            className="flex flex-col gap-6 w-full"
+            onSubmit={handleRegister}
           >
-            {loading ? "Validating..." : "Validate Proof"}
-          </button>
-          {validationStatus === "approved" && (
-            <div className="text-green-600 font-semibold text-center mt-2">
-              ✅ Proof Verified Successfully! You can now enter trip details.
-            </div>
-          )}
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-center text-violet-600">
+              Make Your Trip For Safe Journey
+            </h1>
 
-          {validationStatus === "rejected" && (
-            <div className="text-red-600 font-semibold text-center mt-2">
-              ❌ Proof Validation Failed! Please check your details.
-            </div>
-          )}
-        </section>
-        {/* Trip Details */}
-        {validationStatus === "approved" && (
-          <section className="flex flex-col gap-4">
-            <h2 className="flex gap-1 items-center text-lg font-semibold text-gray-700">
-              <MdOutlineTravelExplore />
-              Trip Details
-            </h2>
-            {/* <div className="grid grid-cols-2 gap-4"> */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
+            {/* Personal Info */}
+            <section className="flex flex-col gap-4">
+              <h2 className="flex gap-1 items-center text-lg font-semibold text-gray-700">
+                <FaUserPlus />
+                Personal Information
+              </h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block mb-1">Name:</label>
+                  <input
+                    type="text"
+                    // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-gray-400 rounded px-3 py-2 
+focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) =>
+                      handleChange("traveler", "name", e.target.value)
+                    }
+                    placeholder="Enter your name"
+                  />
+                </div>
+                <div>
+                  <label className="block mb-1">Email:</label>
+                  <input
+                    type="email"
+                    // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-gray-400 rounded px-3 py-2 
+focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) =>
+                      handleChange("traveler", "email", e.target.value)
+                    }
+                    placeholder="Enter your email"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block mb-1">Date Of Birth:</label>
+                  <input
+                    type="date"
+                    // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-gray-400 rounded px-3 py-2 
+focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) =>
+                      handleChange("traveler", "dob", e.target.value)
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="block mb-1">Gender:</label>
+                  <select
+                    // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-gray-400 rounded px-3 py-2 
+focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) =>
+                      handleChange("traveler", "gender", e.target.value)
+                    }
+                  >
+                    <option value="">Select gender</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block mb-1">Age:</label>
+                  <input
+                    // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-gray-400 rounded px-3 py-2 
+focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) =>
+                      handleChange("traveler", "age", e.target.value)
+                    }
+                    placeholder="Enter your age"
+                  />
+                </div>
+                <div>
+                  <label className="block mb-1">Nationality:</label>
+                  <select
+                    // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-gray-400 rounded px-3 py-2 
+focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) =>
+                      handleChange("traveler", "nationality", e.target.value)
+                    }
+                  >
+                    <option value="india">Indian</option>
+                    <option value="united states">United States</option>
+                    <option value="australia">Australia</option>
+                    <option value="united kingdom">United Kingdom</option>
+                    <option value="Canada">Canada</option>
+                    <option value="iran">Iran</option>
+                    <option value="iraq">Iraq</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              </div>
+
               <div>
-                <label className="block mb-1">From:</label>
+                <label className="block mb-1">Address:</label>
                 <input
-                  // className="border border-gray-400 rounded px-3 py-2 w-full"
+                  // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
                   className="w-full border border-gray-400 rounded px-3 py-2 
 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={formData.from.name}
                   onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      from: {
-                        name: e.target.value,
-                        lat: "", // reset coordinates
-                        lng: "",
-                      },
-                    }))
+                    handleChange("traveler", "address", e.target.value)
                   }
-                  onBlur={() => fetchCoordinates(formData.from.name, "from")}
-                  placeholder="Enter starting place"
+                  placeholder="Enter your address"
                 />
               </div>
+            </section>
 
-              <div>
-                <label className="block mb-1">To:</label>
-                <input
-                  // className="border border-gray-400 rounded px-3 py-2 w-full"
-                  className="w-full border border-gray-400 rounded px-3 py-2 
+            <section className="flex flex-col gap-4">
+              <h2 className="flex gap-1 items-center text-lg font-semibold text-gray-700">
+                <BiSolidContact />
+                Contact Details
+              </h2>
+              {/* <div className="grid grid-cols-2 gap-4"> */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block mb-1">Mobile Number:</label>
+                  <input
+                    type="tel"
+                    // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-gray-400 rounded px-3 py-2 
 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={formData.to.name}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      to: {
-                        name: e.target.value,
-                        lat: "", // reset coordinates
-                        lng: "",
-                      },
-                    }))
-                  }
-                  onBlur={() => fetchCoordinates(formData.to.name, "to")}
-                  placeholder="Enter destination"
-                />
+                    onChange={(e) =>
+                      handleChange(
+                        "contactDetails",
+                        "mobileNumber",
+                        e.target.value,
+                      )
+                    }
+                    placeholder="Enter your 10-digit mobile number without country code"
+                  />
+                </div>
+                <div></div>
+                <div>
+                  <label className="block mb-1">Friend 1 :</label>
+                  <input
+                    type="text"
+                    // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-gray-400 rounded px-3 py-2 
+focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) =>
+                      handleChange("contactDetails", "friend1", e.target.value)
+                    }
+                    placeholder="Enter Friend Name"
+                  />
+                </div>
+                <div>
+                  <label className="block mb-1">Emergency Contact 1 :</label>
+                  <input
+                    type="tel"
+                    // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-gray-400 rounded px-3 py-2 
+focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) =>
+                      handleChange(
+                        "contactDetails",
+                        "emergencyContact1",
+                        e.target.value,
+                      )
+                    }
+                    placeholder="Enter your 10-digit mobile number without country code"
+                  />
+                </div>
+                <div>
+                  <label className="block mb-1">Friend 2 :</label>
+                  <input
+                    type="text"
+                    // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-gray-400 rounded px-3 py-2 
+focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) =>
+                      handleChange("contactDetails", "friend2", e.target.value)
+                    }
+                    placeholder="Enter Friend Name"
+                  />
+                </div>
+                <div>
+                  <label className="block mb-1">Emergency Contact 2 :</label>
+                  <input
+                    type="tel"
+                    // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-gray-400 rounded px-3 py-2 
+focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) =>
+                      handleChange(
+                        "contactDetails",
+                        "emergencyContact2",
+                        e.target.value,
+                      )
+                    }
+                    placeholder="Enter your 10-digit mobile number without country code"
+                  />
+                </div>
+                <div>
+                  <label className="block mb-1">RelationShip :</label>
+                  <select
+                    // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-gray-400 rounded px-3 py-2 
+focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) =>
+                      handleChange(
+                        "contactDetails",
+                        "relationship",
+                        e.target.value,
+                      )
+                    }
+                  >
+                    <option value="">Select relation</option>
+                    <option value="father">Father</option>
+                    <option value="mother">Mother</option>
+                    <option value="brother">Brother</option>
+                    <option value="sister">Sister</option>
+                    <option value="spouse">Spouse</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block mb-1">RelationShip Contact :</label>
+                  <input
+                    type="tel"
+                    // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-gray-400 rounded px-3 py-2 
+focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) =>
+                      handleChange(
+                        "contactDetails",
+                        "relationshipContact",
+                        e.target.value,
+                      )
+                    }
+                    placeholder="Enter your 10-digit mobile number without country code"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block mb-1">Means of transport :</label>
-                <input
-                  type="text"
-                  // className="border border-gray-400 rounded px-3 py-2 w-[830px] focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  onChange={(e) =>
-                    handleChange(null, "meansofTransport", e.target.value)
-                  }
-                  placeholder="Ex : Bus, Train, Flight, Car,Bike etc."
-                />
-              </div>
-              {/* <div></div> */}
-              <div>
-                <label className="block mb-1">Starting Date:</label>
-                <input
-                  type="date"
-                  className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  onChange={(e) =>
-                    handleChange(null, "startDate", e.target.value)
-                  }
-                  placeholder="enter time in 24hr formate"
-                />
-              </div>
-              <div>
-                <label className="block mb-1">Ending Date:</label>
-                <input
-                  type="date"
-                  className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  onChange={(e) =>
-                    handleChange(null, "endDate", e.target.value)
-                  }
-                  placeholder="enter time in 24hr formate "
-                />
-              </div>
-              <div>
-                <label className="block mb-1">Start Time: [ Enter time in 24hr format ]</label>
-                <input
-                  type="time"
-                  className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  onChange={(e) =>
-                    handleChange(null, "startTime", e.target.value)
-                  }
-                />
-              </div>
-              <div>
-                <label className="block mb-1">End Time: [ Enter time in 24hr format ]</label>
-                <input
-                  type="time"
-                  className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  onChange={(e) =>
-                    handleChange(null, "endTime", e.target.value)
-                  }
-                />
-              </div>
-              <div>
-                <label className="block mb-1">
-                  Number of people travelling in trip:
-                </label>
-                <input
-                  type="number"
-                  className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  onChange={(e) =>
-                    handleChange(null, "peopleTravel", parseInt(e.target.value))
-                  }
-                  placeholder="number of people travelling"
-                />
-              </div>
-            </div>
-          </section>
-        )}
+            </section>
 
-        {/* Submit */}
-        {validationStatus === "approved" && (
-          <button
-            type="submit"
-            // className="bg-blue-600 text-white font-semibold sm:w-auto w-full px-6 py-3 mx-86 rounded-full hover:bg-blue-700 transition"
-            className="bg-blue-600 text-white font-semibold w-full sm:w-auto 
+            {/* Identity Proof */}
+            <section className="flex flex-col gap-4">
+              <h2 className="flex gap-2 items-center text-lg font-semibold text-gray-700">
+                <GrValidate />
+                Identity Proof
+              </h2>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block mb-1">Identity Proof</label>
+                  <select
+                    // className="border border-gray-400 rounded px-3 py-2 w-full"
+                    className="w-full border border-gray-400 rounded px-3 py-2 
+focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Select identity proof type"
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      handleChange("proof", "identityProof", value);
+                      setIdentityProof(value);
+                    }}
+                  >
+                    <option value="">Select</option>
+                    <option value="PAN">PAN</option>
+                    <option value="Aadhaar">Aadhaar</option>
+                    <option value="Passport">Passport</option>
+                    <option value="VoterID">VoterID</option>
+                    <option value="DrivingLicense">Driving License</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block mb-1">Proof Number</label>
+                  <input
+                    // className="border border-gray-400 rounded px-3 py-2 w-full"
+                    className="w-full border border-gray-400 rounded px-3 py-2 
+focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter proof number"
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      handleChange("proof", "proofNumber", value);
+                      setProofNumber(value);
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label className="block mb-1">Proof Image</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    // className="border border-gray-400 rounded px-3 py-2 w-full"
+                    className="w-full border border-gray-400 rounded px-3 py-2 
+focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={handleProofImageUpload}
+                  />
+                </div>
+              </div>
+
+              {/* Message display - added for better UX */}
+              {message && (
+                <div
+                  className={`text-center p-2 rounded ${
+                    validationStatus === "approved"
+                      ? "bg-green-100 text-green-700"
+                      : validationStatus === "rejected"
+                        ? "bg-red-100 text-red-700"
+                        : "bg-yellow-100 text-yellow-700"
+                  }`}
+                >
+                  {message}
+                </div>
+              )}
+
+              <button
+                onClick={handleValidate}
+                // className="bg-blue-600 text-white font-semibold sm:w-auto w-full px-3 py-3 mx-86 rounded-full hover:bg-blue-700 transition"
+                className="bg-blue-600 text-white font-semibold w-full sm:w-auto 
 px-6 py-3 mx-auto rounded-full hover:bg-blue-700 transition"
-            disabled={loading}
-          >
-            {loading ? "Registering..." : "Register"}
-          </button>
-        )}
-      </form>
-    </div>
-    </div>
+                disabled={loading}
+              >
+                {loading ? "Validating..." : "Validate Proof"}
+              </button>
+              {validationStatus === "approved" && (
+                <div className="text-green-600 font-semibold text-center mt-2">
+                  ✅ Proof Verified Successfully! You can now enter trip
+                  details.
+                </div>
+              )}
+
+              {validationStatus === "rejected" && (
+                <div className="text-red-600 font-semibold text-center mt-2">
+                  ❌ Proof Validation Failed! Please check your details.
+                </div>
+              )}
+            </section>
+            {/* Trip Details */}
+            {validationStatus === "approved" && (
+              <section className="flex flex-col gap-4">
+                <h2 className="flex gap-1 items-center text-lg font-semibold text-gray-700">
+                  <MdOutlineTravelExplore />
+                  Trip Details
+                </h2>
+                {/* <div className="grid grid-cols-2 gap-4"> */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block mb-1">From:</label>
+                    <input
+                      // className="border border-gray-400 rounded px-3 py-2 w-full"
+                      className="w-full border border-gray-400 rounded px-3 py-2 
+focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={formData.from.name}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          from: {
+                            name: e.target.value,
+                            lat: "", // reset coordinates
+                            lng: "",
+                          },
+                        }))
+                      }
+                      onBlur={() =>
+                        fetchCoordinates(formData.from.name, "from")
+                      }
+                      placeholder="Enter starting place"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block mb-1">To:</label>
+                    <input
+                      // className="border border-gray-400 rounded px-3 py-2 w-full"
+                      className="w-full border border-gray-400 rounded px-3 py-2 
+focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={formData.to.name}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          to: {
+                            name: e.target.value,
+                            lat: "", // reset coordinates
+                            lng: "",
+                          },
+                        }))
+                      }
+                      onBlur={() => fetchCoordinates(formData.to.name, "to")}
+                      placeholder="Enter destination"
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-1">Accommodation / Stay :</label>
+                    <textarea
+                      type="text"
+                      className="border border-gray-400 rounded px-3 py-2 w-[950px]  focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      // className="border border-gray-400 rounded px-3 py-2  w-full max-w-[900px] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      onChange={(e) =>
+                        handleChange(null, "accommodation", e.target.value)
+                      }
+                      placeholder="Ex : Hotel(sri venkateshwara near railway station) etc."
+                    />
+                  </div>
+                  <div></div>
+                  <div>
+                    <label className="block mb-1">Purpose of work :</label>
+                    <input
+                      type="text"
+                      // className="border border-gray-400 rounded px-3 py-2 w-[830px] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      onChange={(e) =>
+                        handleChange(null, "purposeOfWork", e.target.value)
+                      }
+                      placeholder="Ex : Interview, Meeting, Test, Personal visit  etc."
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-1">Means of transport :</label>
+                    <input
+                      type="text"
+                      // className="border border-gray-400 rounded px-3 py-2 w-[830px] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      onChange={(e) =>
+                        handleChange(null, "meansOfTransport", e.target.value)
+                      }
+                      placeholder="Ex : Bus, Train, Flight, Car,Bike etc."
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-1">Starting Date:</label>
+                    <input
+                      type="date"
+                      className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      onChange={(e) =>
+                        handleChange(null, "startDate", e.target.value)
+                      }
+                      placeholder="start date of trip"
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-1">Ending Date:</label>
+                    <input
+                      type="date"
+                      className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      onChange={(e) =>
+                        handleChange(null, "endDate", e.target.value)
+                      }
+                      placeholder="end date of trip"
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-1">
+                      Start Time: [ Enter time in 24hr format ]
+                    </label>
+                    <input
+                      type="time"
+                      min="00:00"
+                      max="23:59"
+                      step="60"
+                      className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      onChange={(e) =>
+                        handleChange(null, "startTime", e.target.value)
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-1">
+                      End Time: [ Enter time in 24hr format ]
+                    </label>
+                    <input
+                      type="time"
+                      min="00:00"
+                      max="23:59"
+                      step="60"
+                      className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      onChange={(e) =>
+                        handleChange(null, "endTime", e.target.value)
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-1">
+                      Number of Days Staying:
+                    </label>
+                    <input
+                      type="number"
+                      className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      onChange={(e) =>
+                        handleChange(
+                          null,
+                          "numberOfDaysStaying",
+                          parseInt(e.target.value),
+                        )
+                      }
+                      placeholder="number of days staying"
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-1">
+                      Number of people travelling in trip:
+                    </label>
+                    <input
+                      type="number"
+                      className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      onChange={(e) =>
+                        handleChange(
+                          null,
+                          "peopleTravel",
+                          parseInt(e.target.value),
+                        )
+                      }
+                      placeholder="number of people travelling"
+                    />
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* Submit */}
+            {validationStatus === "approved" && (
+              <button
+                type="submit"
+                // className="bg-blue-600 text-white font-semibold sm:w-auto w-full px-6 py-3 mx-86 rounded-full hover:bg-blue-700 transition"
+                className="bg-blue-600 text-white font-semibold w-full sm:w-auto 
+px-6 py-3 mx-auto rounded-full hover:bg-blue-700 transition"
+                disabled={loading}
+              >
+                {loading ? "Registering..." : "Register"}
+              </button>
+            )}
+          </form>
+        </div>
+      </div>
     </div>
   );
-//   return (
-//   <div className="w-full px-4 sm:px-6 lg:px-8 py-10">
-//     <div className="max-w-5xl mx-auto bg-white border border-gray-200 rounded-lg shadow-lg p-4 sm:p-6 lg:p-8">
-
-//       <form className="flex flex-col gap-8 w-full" onSubmit={handleRegister}>
-        
-//         {/* Heading */}
-//         <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-center text-violet-600">
-//           Make Your Trip For Safe Journey
-//         </h1>
-
-//         {/* Personal Information */}
-//         <section className="flex flex-col gap-4">
-//           <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-700">
-//             <FaUserPlus />
-//             Personal Information
-//           </h2>
-
-//           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-//             <div>
-//               <label className="block mb-1">Name</label>
-//               <input
-//                 type="text"
-//                 className="w-full border border-gray-400 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500"
-//                 onChange={(e) =>
-//                   handleChange("traveler", "name", e.target.value)
-//                 }
-//                 placeholder="Enter your name"
-//               />
-//             </div>
-
-//             <div>
-//               <label className="block mb-1">Email</label>
-//               <input
-//                 type="email"
-//                 className="w-full border border-gray-400 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500"
-//                 onChange={(e) =>
-//                   handleChange("traveler", "email", e.target.value)
-//                 }
-//                 placeholder="Enter your email"
-//               />
-//             </div>
-
-//             <div>
-//               <label className="block mb-1">Date Of Birth</label>
-//               <input
-//                 type="date"
-//                 className="w-full border border-gray-400 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500"
-//                 onChange={(e) =>
-//                   handleChange("traveler", "dob", e.target.value)
-//                 }
-//               />
-//             </div>
-
-//             <div>
-//               <label className="block mb-1">Gender</label>
-//               <select
-//                 className="w-full border border-gray-400 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500"
-//                 onChange={(e) =>
-//                   handleChange("traveler", "gender", e.target.value)
-//                 }
-//               >
-//                 <option value="">Select gender</option>
-//                 <option value="male">Male</option>
-//                 <option value="female">Female</option>
-//                 <option value="other">Other</option>
-//               </select>
-//             </div>
-
-//             <div>
-//               <label className="block mb-1">Age</label>
-//               <input
-//                 className="w-full border border-gray-400 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500"
-//                 onChange={(e) =>
-//                   handleChange("traveler", "age", e.target.value)
-//                 }
-//                 placeholder="Enter your age"
-//               />
-//             </div>
-
-//             <div>
-//               <label className="block mb-1">Nationality</label>
-//               <select
-//                 className="w-full border border-gray-400 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500"
-//                 onChange={(e) =>
-//                   handleChange("traveler", "nationality", e.target.value)
-//                 }
-//               >
-//                 <option value="">Select nationality</option>
-//                 <option value="india">Indian</option>
-//                 <option value="usa">United States</option>
-//                 <option value="uk">United Kingdom</option>
-//                 <option value="australia">Australia</option>
-//                 <option value="canada">Canada</option>
-//                 <option value="other">Other</option>
-//               </select>
-//             </div>
-
-//           </div>
-
-//           <div>
-//             <label className="block mb-1">Address</label>
-//             <input
-//               className="w-full border border-gray-400 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500"
-//               onChange={(e) =>
-//                 handleChange("traveler", "address", e.target.value)
-//               }
-//               placeholder="Enter your address"
-//             />
-//           </div>
-//         </section>
-
-//         {/* Contact Details */}
-//         <section className="flex flex-col gap-4">
-//           <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-700">
-//             <BiSolidContact />
-//             Contact Details
-//           </h2>
-
-//           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-//             <div>
-//               <label className="block mb-1">Mobile Number</label>
-//               <input
-//                 type="tel"
-//                 className="w-full border border-gray-400 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500"
-//                 onChange={(e) =>
-//                   handleChange("contactDetails", "mobileNumber", e.target.value)
-//                 }
-//                 placeholder="Enter mobile number"
-//               />
-//             </div>
-
-//             <div>
-//               <label className="block mb-1">Friend 1</label>
-//               <input
-//                 type="text"
-//                 className="w-full border border-gray-400 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500"
-//                 onChange={(e) =>
-//                   handleChange("contactDetails", "friend1", e.target.value)
-//                 }
-//                 placeholder="Enter friend name"
-//               />
-//             </div>
-
-//             <div>
-//               <label className="block mb-1">Emergency Contact 1</label>
-//               <input
-//                 type="tel"
-//                 className="w-full border border-gray-400 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500"
-//                 onChange={(e) =>
-//                   handleChange("contactDetails","emergencyContact1",e.target.value)
-//                 }
-//                 placeholder="Enter contact number"
-//               />
-//             </div>
-
-//             <div>
-//               <label className="block mb-1">Friend 2</label>
-//               <input
-//                 type="text"
-//                 className="w-full border border-gray-400 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500"
-//                 onChange={(e) =>
-//                   handleChange("contactDetails", "friend2", e.target.value)
-//                 }
-//               />
-//             </div>
-
-//             <div>
-//               <label className="block mb-1">Emergency Contact 2</label>
-//               <input
-//                 type="tel"
-//                 className="w-full border border-gray-400 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500"
-//                 onChange={(e) =>
-//                   handleChange("contactDetails","emergencyContact2",e.target.value)
-//                 }
-//               />
-//             </div>
-
-//             <div>
-//               <label className="block mb-1">Relationship</label>
-//               <select
-//                 className="w-full border border-gray-400 rounded px-3 py-2"
-//                 onChange={(e) =>
-//                   handleChange("contactDetails","relationship",e.target.value)
-//                 }
-//               >
-//                 <option value="">Select relation</option>
-//                 <option value="father">Father</option>
-//                 <option value="mother">Mother</option>
-//                 <option value="brother">Brother</option>
-//                 <option value="sister">Sister</option>
-//                 <option value="spouse">Spouse</option>
-//               </select>
-//             </div>
-
-//           </div>
-//         </section>
-
-//         {/* Buttons */}
-//         <div className="flex justify-center">
-//           <button
-//             type="submit"
-//             className="bg-blue-600 text-white font-semibold w-full sm:w-auto px-8 py-3 rounded-full hover:bg-blue-700 transition"
-//           >
-//             Register
-//           </button>
-//         </div>
-
-//       </form>
-//     </div>
-//   </div>
-// );
 }
 
 export default Makeyourtrip;
-

@@ -532,7 +532,7 @@ const Dashboard = () => {
                         {new Date(trip.endDate).toLocaleDateString()}{" "}
                         {trip.endTime}
                       </TableCell>
-                      <TableCell>{trip.meansofTransport}</TableCell>
+                      <TableCell>{trip.meansOfTransport}</TableCell>
                       <TableCell>
                         <Chip
                           label={trip.status}
@@ -611,36 +611,7 @@ const Dashboard = () => {
   />
 )}
 
-          {/* {liveLocation && (
-            <Marker
-              position={[Number(liveLocation.lat), Number(liveLocation.lng)]}
-            >
-              <Popup>Current Location</Popup>
-            </Marker>
-          )}
-
-          {liveLocation && destination && (
-            {routeCoords.length > 0 && (
-            <Polyline
-              positions={routeCoords}
-              pathOptions={{
-                color: "#2563eb",
-                weight: 6,
-              }}
-            />
-          )}
-            // <Polyline
-            //   positions={[
-            //     [Number(liveLocation.lat), Number(liveLocation.lng)],
-            //     [Number(destination.lat), Number(destination.lng)],
-            //   ]}
-            //   pathOptions={{
-            //     color: "green",
-            //     weight: 5,
-            //   }}
-            // />
-          )} */}
-
+          
           {!liveLocation && (
             <Circle
               center={[18.1124, 79.0193]}
@@ -649,19 +620,7 @@ const Dashboard = () => {
             />
           )}
 
-          {/* {history.length > 0 && (
-            <Polyline
-              positions={history.map((loc) => [
-                Number(loc.lat),
-                Number(loc.lng),
-              ])}
-              pathOptions={{
-                color: "#2563eb",
-                weight: 6,
-                opacity: 0.9,
-              }}
-            />
-          )} */}
+          
 
           {destination &&
             !isNaN(Number(destination.lat)) &&

@@ -20,12 +20,15 @@ exports.registerTrip = async (req, res) => {
       proof,
       from,
       to,
-      meansofTransport,
+      accommodation,
+      purposeOfWork,
+      meansOfTransport,
       startDate,
       endDate,
       startTime,
       endTime,
       peopleTravel,
+      numberOfDaysStaying,
     } = req.body;
 
     // ✅ Validate location objects
@@ -56,12 +59,15 @@ exports.registerTrip = async (req, res) => {
       proof,
       from,
       to,
-      meansofTransport,
+      accommodation,
+      purposeOfWork,
+      meansOfTransport,
       startDate,
       endDate,
       startTime,
       endTime,
-      peopleTravel,
+      peopleTravel,   
+      numberOfDaysStaying,
 
       status: "Active",
     });
