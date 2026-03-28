@@ -9,6 +9,7 @@ const bodyParser = require("body-parser");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const path = require("path");
+const jwt = require("jsonwebtoken");
 
 const authRoute = require("./routes/AuthRoute");
 const tripRoute = require("./routes/tripRoute");
@@ -42,6 +43,11 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.use("/api/trips", tripRoute);
 app.use("/api/proof", proofRoute);
+
+app.get('/api/test-token', (req, res) => {
+  const token = jwt.sign({ test: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  res.json({ token });
+});
 
 // app.get("/proofdata", async (req, res) => {
 //   let tempProofData = [

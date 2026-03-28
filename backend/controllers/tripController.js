@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const TripModel = require("../model/TripModel.js");
 const User = require("../model/UserModel");
 const sendEmail = require("../util/sendEmail");
@@ -5,6 +6,19 @@ const { v4: uuidv4 } = require("uuid");
 const axios = require("axios");
 const { checkWeatherAlert } = require("../util/weatherAlert");
 const { getWeatherData } = require("../util/weatherService.js");
+
+const updateTripStatus = (trip) => {
+  const now = new Date();
+
+  const start = combineDateAndTime(trip.startDate, trip.startTime);
+  const end = combineDateAndTime(trip.endDate, trip.endTime);
+
+  if (!start || !end) return trip.status;
+
+  if (now < start) return "Pending";
+  if (now >= start && now <= end) return "Active";
+  return "Completed";
+};
 
 exports.registerTrip = async (req, res) => {
   try {
@@ -66,10 +80,10 @@ exports.registerTrip = async (req, res) => {
       endDate,
       startTime,
       endTime,
-      peopleTravel,   
+      peopleTravel,
       numberOfDaysStaying,
 
-      status: "Active",
+      status: "Pending",
     });
 
     await newTrip.save();
@@ -79,27 +93,27 @@ exports.registerTrip = async (req, res) => {
       trip: newTrip,
     });
 
-setTimeout(async () => {
-  try {
-    console.log("Weather email process started...");
+    setTimeout(async () => {
+      try {
+        console.log("Weather email process started...");
 
-    const weatherData = await getWeatherData(to.lat, to.lng);
+        const weatherData = await getWeatherData(to.lat, to.lng);
 
-    if (!weatherData) {
-      console.log("Weather data not available");
-      return;
-    }
+        if (!weatherData) {
+          console.log("Weather data not available");
+          return;
+        }
 
-    const user = await User.findById(userId);
-    if (!user) {
-      console.log("User not found");
-      return;
-    }
+        const user = await User.findById(userId);
+        if (!user) {
+          console.log("User not found");
+          return;
+        }
 
-    const weatherCondition = weatherData.weather?.[0]?.main || "Unknown";
-    const temperature = weatherData.main?.temp || "N/A";
+        const weatherCondition = weatherData.weather?.[0]?.main || "Unknown";
+        const temperature = weatherData.main?.temp || "N/A";
 
-    const emailTemplate = `
+        const emailTemplate = `
       <div style="font-family: Arial; padding: 20px;">
         <h2>Weather Update for Your Trip</h2>
         <p><strong>Destination:</strong> ${to.name}</p>
@@ -109,80 +123,18 @@ setTimeout(async () => {
       </div>
     `;
 
-    await sendEmail(
-      user.email,
-      "Weather Update for Your Upcoming Trip",
-      emailTemplate
-    );
+        await sendEmail(
+          user.email,
+          "Weather Update for Your Upcoming Trip",
+          emailTemplate,
+        );
 
-    console.log("Weather email sent successfully");
-  } catch (err) {
-    console.error("Weather email error:", err);
-  }
-}, 1000);
+        console.log("Weather email sent successfully");
+      } catch (err) {
+        console.error("Weather email error:", err);
+      }
+    }, 1000);
 
-//     setImmediate(async () => {
-//   try {
-//     const weatherData = await getWeatherData(to.lat, to.lng);
-
-//     const alertMessage = checkWeatherAlert(weatherData);
-
-//     console.log("Weather Data:", weatherData);
-// console.log("Alert Message:", alertMessage);
-
-//     // if (alertMessage) {
-//     //   const user = await User.findById(userId);
-
-//     //   if (!user) return;
-
-//     //   const emailTemplate = `
-//     //     <div style="font-family: Arial; padding: 20px;">
-//     //       <h2>Weather Alert for Your Trip</h2>
-//     //       <p><strong>Destination:</strong> ${to.name}</p>
-//     //       <p>${alertMessage}</p>
-//     //       <p>Please plan accordingly and stay safe.</p>
-//     //     </div>
-//     //   `;
-
-//     //   await sendEmail(
-//     //     user.email,
-//     //     "Weather Alert for Your Upcoming Trip",
-//     //     emailTemplate
-//     //   );
-
-//     //   console.log("Weather alert email sent successfully");
-//     // } else {
-//     //   console.log("No weather alert condition met");
-//     // }
-
-//     const user = await User.findById(userId);
-// if (!user) return;
-
-// const weatherCondition = weatherData.weather[0].main;
-// const temperature = weatherData.main.temp;
-
-// const emailTemplate = `
-//   <div style="font-family: Arial; padding: 20px;">
-//     <h2>Weather Update for Your Trip</h2>
-//     <p><strong>Destination:</strong> ${to.name}</p>
-//     <p><strong>Condition:</strong> ${weatherCondition}</p>
-//     <p><strong>Temperature:</strong> ${temperature}°C</p>
-//     <p>Have a safe journey!</p>
-//   </div>
-// `;
-
-// await sendEmail(
-//   user.email,
-//   "Weather Update for Your Upcoming Trip",
-//   emailTemplate
-// );
-
-// console.log("Weather email sent successfully");
-//   } catch (err) {
-//     console.error("Weather alert error:", err);
-//   }
-// }
-// );
   } catch (error) {
     console.error(error);
     res.status(400).json({ error: error.message });
@@ -344,6 +296,16 @@ exports.trackLocation = async (req, res) => {
       });
     }
 
+    if (trip.status !== "Cancelled") {
+      const newStatus = updateTripStatus(trip);
+
+      if (trip.locationHistory.length === 0 && newStatus === "Completed") {
+        trip.status = "Pending";
+      } else {
+        trip.status = newStatus;
+      }
+    }
+
     const start = combineDateAndTime(trip.startDate, trip.startTime);
     const end = combineDateAndTime(trip.endDate, trip.endTime);
 
@@ -373,30 +335,29 @@ exports.trackLocation = async (req, res) => {
     // ===============================
 
     // 🌦 GET CURRENT WEATHER
-const weatherData = await getWeatherData(lat, lng);
+    const weatherData = await getWeatherData(lat, lng);
 
-if (!weatherData) {
-  return res.status(200).json({ message: "Location stored" });
-}
+    if (!weatherData) {
+      return res.status(200).json({ message: "Location stored" });
+    }
 
-// const weatherCondition = weatherData.weather?.[0]?.main || "Unknown";
-const weatherCondition = weatherData.weather?.[0]?.description || "Unknown";
-const temperature = weatherData.main?.temp || "N/A";
+    // const weatherCondition = weatherData.weather?.[0]?.main || "Unknown";
+    const weatherCondition = weatherData.weather?.[0]?.description || "Unknown";
+    const temperature = weatherData.main?.temp || "N/A";
 
-console.log("Current Weather:", weatherCondition);
+    console.log("Current Weather:", weatherCondition);
 
-// ✅ SEND EMAIL ONLY IF WEATHER CHANGED
-if (trip.lastWeatherCondition !== weatherCondition) {
+    // ✅ SEND EMAIL ONLY IF WEATHER CHANGED
+    if (trip.lastWeatherCondition !== weatherCondition) {
+      console.log("Weather changed! Sending email...");
 
-  console.log("Weather changed! Sending email...");
+      const user = await User.findById(trip.userId);
 
-  const user = await User.findById(trip.userId);
-
-  if (user) {
-    await sendEmail(
-      user.email,
-      "🌦 Live Weather Update",
-      `
+      if (user) {
+        await sendEmail(
+          user.email,
+          "🌦 Live Weather Update",
+          `
       <div style="font-family: Arial; padding: 20px;">
         <h2>Weather Update During Your Trip</h2>
         <p><strong>Location:</strong> ${lat}, ${lng}</p>
@@ -404,60 +365,82 @@ if (trip.lastWeatherCondition !== weatherCondition) {
         <p><strong>Temperature:</strong> ${temperature}°C</p>
         <p>Travel safely!</p>
       </div>
-      `
-    );
+      `,
+        );
 
-    console.log("Weather update email sent!");
+        console.log("Weather update email sent!");
 
-    // ✅ Update last weather condition
-    trip.lastWeatherCondition = weatherCondition;
-    await trip.save();
-  }
-}
-
-    // const weatherData = await getWeatherData(lat, lng);
-    // const alertMessage = checkWeatherAlert(weatherData);
-
-    // console.log("Weather check:", alertMessage);
-
-    // if (trip.lastWeatherCondition !== weatherCondition)
-
-    // if (alertMessage) {
-    //   const user = await User.findById(trip.userId);
-
-    //   if (user) {
-    //     await sendEmail(
-    //       user.email,
-    //       "⚠️ Live Weather Alert",
-    //       `
-    //         <div style="font-family: Arial; padding: 20px;">
-    //           <h2>Weather Alert During Your Trip</h2>
-    //           <p><strong>Location:</strong> ${lat}, ${lng}</p>
-    //           <p>${alertMessage}</p>
-    //           <p>Please stay safe and take precautions.</p>
-    //         </div>
-    //       `
-    //     );
-
-    //     console.log("Weather alert email sent!");
-    //   }
-    // }
+        // ✅ Update last weather condition
+        trip.lastWeatherCondition = weatherCondition;
+        await trip.save();
+      }
+    }
 
     res.status(200).json({ message: "Location stored" });
-
   } catch (error) {
     console.error("Track Location Error:", error);
     res.status(500).json({ error: error.message });
   }
 };
 
+exports.getActiveTrip = async (req, res) => {
+  const trips = await TripModel.find({ userId: req.user._id });
+
+  let activeTrip = null;
+
+  for (let trip of trips) {
+    const start = combineDateAndTime(trip.startDate, trip.startTime);
+    const end = combineDateAndTime(trip.endDate, trip.endTime);
+
+    const status = calculateStatus(start, end);
+
+    if (trip.status !== status) {
+      trip.status = status;
+      await trip.save();
+    }
+
+    if (status === "Active") {
+      activeTrip = trip;
+      break;
+    }
+  }
+
+  if (!activeTrip) {
+    return res.status(204).json({ message: "No active trip" });
+  }
+
+  res.json({
+    tripId: activeTrip.tripId,
+    start: activeTrip.liveLocation || activeTrip.from,
+    end: activeTrip.to,
+    status: activeTrip.status,
+  });
+};
+
 exports.getTripById = async (req, res) => {
   try {
-    const trip = await TripModel.findOne({ tripId: req.params.id });
+    const trip = await TripModel.findOne({ tripId: req.params.tripId });
+
     if (!trip) {
       return res.status(404).json({ error: "Trip not found" });
     }
-    res.status(200).json(trip);
+
+    // ✅ Don't override cancelled
+    if (trip.status !== "Cancelled") {
+      const newStatus = updateTripStatus(trip);
+
+      if (trip.status !== newStatus) {
+        trip.status = newStatus;
+        await trip.save();
+      }
+    }
+
+    res.status(200).json({
+      start: trip.liveLocation || trip.from, // fallback
+      end: trip.to,
+      history: trip.locationHistory || [],
+      status: trip.status,
+    });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -489,7 +472,7 @@ exports.geocodeLocation = async (req, res) => {
         headers: {
           "User-Agent": "SmartTouristApp/1.0",
         },
-      }
+      },
     );
 
     if (response.data.length === 0) {
@@ -509,3 +492,40 @@ exports.geocodeLocation = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+exports.updateLocation = async (req, res) => {
+  try {
+    const { tripId, lat, lng } = req.body;
+
+    // console.log("BODY:", req.body);
+    // console.log("TOKEN USER:", req.user._id);
+
+    const trip = await TripModel.findOne({ tripId });
+
+    // console.log("DB TRIP:", trip);
+
+    if (!trip) {
+      return res.status(404).json({ message: "Trip not found by tripId" });
+    }
+
+    if (trip.userId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        message: "User mismatch",
+        tripUser: trip.userId,
+        tokenUser: req.user._id,
+      });
+    }
+
+    trip.liveLocation = { lat, lng };
+    trip.locationHistory.push({ lat, lng, timestamp: new Date() });
+
+    await trip.save();
+
+    res.status(200).json({ message: "Location Updated" });
+  } catch (error) {
+    console.error("Update Error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+

@@ -65,6 +65,7 @@ import {
   Circle,
 } from "react-leaflet";
 import SafetyMap from "../../components/SafetyMap";
+import SafeRouteMap from "../../components/SafeRouteMap";
 
 import L from "leaflet";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
@@ -284,7 +285,7 @@ const Dashboard = () => {
           setLiveLocation(null);
           setHistory([]);
           setDestination(null);
-          setRouteCoords([]); 
+          setRouteCoords([]);
         }
       } catch (err) {
         console.log(err);
@@ -578,6 +579,7 @@ const Dashboard = () => {
           )}
         </CardContent>
       </Card>
+      <SafeRouteMap/>
       <div className="map-wrapper">
         <MapContainer
           center={
@@ -596,22 +598,23 @@ const Dashboard = () => {
           />
 
           {liveLocation && (
-  <Marker position={[Number(liveLocation.lat), Number(liveLocation.lng)]}>
-    <Popup>Current Location</Popup>
-  </Marker>
-)}
+            <Marker
+              position={[Number(liveLocation.lat), Number(liveLocation.lng)]}
+            >
+              <Popup>Current Location</Popup>
+            </Marker>
+          )}
 
-{liveLocation && destination && routeCoords.length > 0 && (
-  <Polyline
-    positions={routeCoords}
-    pathOptions={{
-      color: "#2563eb",
-      weight: 6,
-    }}
-  />
-)}
+          {liveLocation && destination && routeCoords.length > 0 && (
+            <Polyline
+              positions={routeCoords}
+              pathOptions={{
+                color: "#2563eb",
+                weight: 6,
+              }}
+            />
+          )}
 
-          
           {!liveLocation && (
             <Circle
               center={[18.1124, 79.0193]}
@@ -619,8 +622,6 @@ const Dashboard = () => {
               pathOptions={{ color: "blue", fillOpacity: 0.2 }}
             />
           )}
-
-          
 
           {destination &&
             !isNaN(Number(destination.lat)) &&

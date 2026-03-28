@@ -19,6 +19,7 @@
     "axios": "^1.13.2",
     "leaflet": "^1.9.4",
     "leaflet.markercluster": "^1.5.3",
+    "mapbox-gl": "^3.20.0",
     "react": "^19.2.0",
     "react-cookie": "^8.0.1",
     "react-dom": "^19.2.0",
