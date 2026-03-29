@@ -60,15 +60,15 @@ module.exports.Signup = async (req, res) => {
     );
 
     // Send Welcome SMS
-    if (contact) {
-      client.messages.create({
-        body: `Hi ${username}, welcome to Smart Travel! Your account has been successfully created. Explore the world with us!`,
-        from: process.env.TWILIO_PHONE_NUMBER,
-        to: `+91${contact}` // for India
-      })
-      .then(message => console.log("Signup SMS Sent. SID:", message.sid))
-      .catch(err => console.error("Twilio Signup SMS Error:", err.message));
-    }
+    // if (contact) {
+    //   client.messages.create({
+    //     body: `Hi ${username}, welcome to Smart Travel! Your account has been successfully created. Explore the world with us!`,
+    //     from: process.env.TWILIO_PHONE_NUMBER,
+    //     to: `+91${contact}` // for India
+    //   })
+    //   .then(message => console.log("Signup SMS Sent. SID:", message.sid))
+    //   .catch(err => console.error("Twilio Signup SMS Error:", err.message));
+    // }
 
     const token = createSecretToken(user._id);
 
@@ -84,7 +84,12 @@ module.exports.Signup = async (req, res) => {
       user,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Signup Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error during signup",
+      error: error.message,
+    });
   }
 };
 
@@ -154,56 +159,6 @@ module.exports.Login = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-
-// module.exports.Login = async (req, res) => {
-//   try {
-//     const { email, password, contact } = req.body;
-
-//     if (!email || !password) {
-//       return res.json({ message: "All fields are required" });
-//     }
-
-//     const user = await User.findOne({ email });
-//     if (!user) {
-//       return res.json({ message: "Incorrect email or password" });
-//     }
-
-//     const auth = await bcrypt.compare(password, user.password);
-//     if (!auth) {
-//       return res.json({ message: "Incorrect email or password" });
-//     }
-
-//     // if (user.contact) {
-//     //   try {
-//     //     await client.messages.create({
-//     //       body: `Hi ${user.username}, a new login was detected on your Smart Travel account at ${new Date().toLocaleString()}.`,
-//     //       from: process.env.TWILIO_PHONE_NUMBER,
-//     //       to: `+91${user.contact}` // Ensure country code is included
-//     //     });
-//     //     console.log("Login alert sent to:", user.contact);
-//     //   } catch (smsError) {
-//     //     console.error("Twilio Error:", smsError.message);
-//     //     // We don't block the login if the SMS fails
-//     //   }
-//     // }
-
-//     const token = createSecretToken(user._id);
-
-//     res.cookie("token", token, {
-//       httpOnly: true,
-//       sameSite: "lax",
-//       secure: false,
-//     });
-
-//     res.status(200).json({
-//       success: true,
-//       message: "User logged in successfully",
-//       user,
-//     });
-//   } catch (error) {
-//     console.error(error);
-//   }
-// };
 
 module.exports.Logout = async (req, res) => {
   res.clearCookie("token", {
