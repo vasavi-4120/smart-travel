@@ -8,6 +8,7 @@ const SafeRouteMap = () => {
   const mapContainer = useRef(null);
   const map = useRef(null);
   const userMarker = useRef(null);
+  const hasFitted = useRef(false);
 
   // ✅ store markers (important fix)
   const startMarker = useRef(null);
@@ -57,18 +58,42 @@ const SafeRouteMap = () => {
     );
   };
 
-  const drawRoute = async () => {
+  const drawRoute = async (data) => {
     try {
       if (!map.current || !map.current.isStyleLoaded()) return; // ✅ FIX
 
-      const data = await getTripData();
+      // const data = await getTripData();
 
       if (!data) {
         setMessage("No active trip 🚫");
-        map.current.flyTo({
-          center: DEFAULT_LOCATION,
-          zoom: 7,
+
+        if (startMarker.current) {
+          startMarker.current.remove();
+          startMarker.current = null;
+        }
+
+        if (endMarker.current) {
+          endMarker.current.remove();
+          endMarker.current = null;
+        }
+
+        const layers = map.current.getStyle()?.layers || [];
+
+        layers.forEach((layer) => {
+          if (layer.id.startsWith("route-")) {
+            if (map.current.getLayer(layer.id)) {
+              map.current.removeLayer(layer.id);
+            }
+            if (map.current.getSource(layer.id)) {
+              map.current.removeSource(layer.id);
+            }
+          }
         });
+
+        // map.current.flyTo({
+        //   center: DEFAULT_LOCATION,
+        //   zoom: 7,
+        // });
         return;
       }
 
@@ -76,6 +101,19 @@ const SafeRouteMap = () => {
 
       const start = [data.start.lng, data.start.lat];
       const end = [data.end.lng, data.end.lat];
+
+      // map.current.fitBounds([start, end], {
+      //   padding: 100,
+      //   duration: 1000,
+      // });
+
+      if (!hasFitted.current) {
+        map.current.fitBounds([start, end], {
+          padding: 100,
+          duration: 1000,
+        });
+        hasFitted.current = true;
+      }
 
       // ✅ START marker
       if (!startMarker.current) {
@@ -164,8 +202,8 @@ const SafeRouteMap = () => {
     }
   };
 
-  const updateLocation = async () => {
-    const data = await getTripData();
+  const updateLocation = async (data) => {
+    // const data = await getTripData();
     // if (!data || data.status !== "Active") return;
     if (!data) return;
 
@@ -179,10 +217,6 @@ const SafeRouteMap = () => {
           .addTo(map.current);
       } else {
         userMarker.current.setLngLat(userCoords);
-        // map.current.flyTo({
-        //   center: userCoords,
-        //   speed: 0.5,
-        // });
         map.current.easeTo(
           {
             center: userCoords,
@@ -190,6 +224,7 @@ const SafeRouteMap = () => {
           },
           (err) => {
             console.error("Geolocation error:", err);
+            setMessage("Location access denied ❌");
           },
         );
       }
@@ -263,21 +298,27 @@ const SafeRouteMap = () => {
       <div
         ref={mapContainer}
         style={{
-          height: "700px",
-          width: "900px",
-          margin: "auto",
+          height: "70vh",
+          width: "100%",
+          maxWidth: "900px",
+          margin: "20px auto", // centers horizontally
+          borderRadius: "10px",
+          overflow: "hidden",
         }}
       />
       {message && (
         <div
           style={{
             position: "absolute",
-            top: 20,
-            left: 20,
+            top: "10px",
+            left: "10px",
+            right: "10px", // ensures it fits small screens
+            maxWidth: "300px",
             background: "white",
             padding: "10px",
             borderRadius: "8px",
             zIndex: 1,
+            fontSize: "14px",
           }}
         >
           {message}

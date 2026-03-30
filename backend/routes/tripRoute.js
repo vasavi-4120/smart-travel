@@ -9,11 +9,13 @@ const {
   geocodeLocation,
   updateLocation,
   getActiveTrip,
+  triggerEmergency,
 } = require("../controllers/tripController");
 const { userVerification } = require("../middlewares/AuthMiddleware");
 
 // POST /api/trips/register
 router.put("/cancel-trip/:tripId", userVerification, cancelTrip);
+router.put("/trigger-emergency/:tripId", userVerification, triggerEmergency);
 router.post("/register", userVerification, registerTrip);
 router.post("/trackLocation", userVerification, trackLocation);
 router.get("/myTrip", userVerification, getUserTrips);

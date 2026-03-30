@@ -10,6 +10,16 @@ const { getWeatherData } = require("../util/weatherService.js");
 const updateTripStatus = (trip) => {
   const now = new Date();
 
+  // 🚨 Highest priority
+  if (trip.status === "Emergency") {
+    return "Emergency";
+  }
+
+  // ❌ Do not override these
+  if (trip.status === "Cancelled" || trip.status === "Completed") {
+    return trip.status;
+  }
+
   const start = combineDateAndTime(trip.startDate, trip.startTime);
   const end = combineDateAndTime(trip.endDate, trip.endTime);
 
@@ -112,16 +122,64 @@ exports.registerTrip = async (req, res) => {
 
         const weatherCondition = weatherData.weather?.[0]?.main || "Unknown";
         const temperature = weatherData.main?.temp || "N/A";
+        const feelsLike = weatherData.main?.feels_like || "N/A";
+        const humidity = weatherData.main?.humidity || "N/A";
+        const windSpeed = weatherData.wind?.speed || "N/A";
+        const icon = weatherData.weather?.[0]?.icon;
+
+        // ✅ Now create icon URL
+        const iconUrl = `http://openweathermap.org/img/wn/${icon}@2x.png`;
+
+        //     const emailTemplate = `
+        //   <div style="font-family: Arial; padding: 20px;">
+        //     <h2>Weather Update for Your Trip</h2>
+        //     <p><strong>Destination:</strong> ${to.name}</p>
+        //     <p><strong>Condition:</strong> ${weatherCondition}</p>
+        //     <p><strong>Temperature:</strong> ${temperature}°C</p>
+        //     <p>Have a safe journey!</p>
+        //   </div>
+        // `;
 
         const emailTemplate = `
-      <div style="font-family: Arial; padding: 20px;">
-        <h2>Weather Update for Your Trip</h2>
-        <p><strong>Destination:</strong> ${to.name}</p>
-        <p><strong>Condition:</strong> ${weatherCondition}</p>
-        <p><strong>Temperature:</strong> ${temperature}°C</p>
-        <p>Have a safe journey!</p>
-      </div>
-    `;
+  <div style="font-family: Arial; padding: 20px; background: #f5f7fa; border-radius: 10px;">
+    
+    <h2 style="color: #2c3e50;">
+      🌤 <img src="${iconUrl}" alt="weather icon" />
+      Weather Update for Your Trip
+    </h2>
+    
+    <p><strong>📍 Destination:</strong> ${to.name}</p>
+    <p><strong>📅 Date:</strong> ${new Date().toLocaleDateString()}</p>
+    
+    <hr/>
+
+    <p><strong>🌡 Temperature:</strong> ${temperature}°C</p>
+    <p><strong>🤔 Feels Like:</strong> ${feelsLike}°C</p>
+    <p><strong>☁ Condition:</strong> ${weatherCondition}</p>
+    <p><strong>💧 Humidity:</strong> ${humidity}%</p>
+    <p><strong>🌬 Wind Speed:</strong> ${windSpeed} m/s</p>
+
+    <hr/>
+
+    <p style="color: #27ae60;"><strong>🧳 Travel Tip:</strong> ${
+      temperature > 30
+        ? "Stay hydrated and wear light clothing."
+        : "Carry a light jacket for comfort."
+    }</p>
+
+    <p style="color: #e74c3c;"><strong>⚠ Safety Tip:</strong> ${
+      weatherCondition.toLowerCase().includes("rain")
+        ? "Carry an umbrella and be cautious on roads."
+        : "Weather is clear, safe to travel."
+    }</p>
+
+    <br/>
+
+    <p style="text-align:center; color: #7f8c8d;">
+      Have a safe and happy journey! ✈😊
+    </p>
+  </div>
+`;
 
         await sendEmail(
           user.email,
@@ -134,7 +192,6 @@ exports.registerTrip = async (req, res) => {
         console.error("Weather email error:", err);
       }
     }, 1000);
-
   } catch (error) {
     console.error(error);
     res.status(400).json({ error: error.message });
@@ -170,9 +227,13 @@ exports.getUserTrips = async (req, res) => {
     const updatedTrips = await Promise.all(
       trips.map(async (trip) => {
         // 🛑 If already cancelled, don't touch it
-        if (trip.status === "Cancelled") {
-          return trip;
-        }
+        // if (trip.status === "Cancelled") {
+        //   return trip;
+        // }
+
+        if (["Cancelled", "Emergency", "Completed"].includes(trip.status)) {
+  return trip;
+}
 
         const start = combineDateAndTime(trip.startDate, trip.startTime);
         const end = combineDateAndTime(trip.endDate, trip.endTime);
@@ -296,7 +357,9 @@ exports.trackLocation = async (req, res) => {
       });
     }
 
-    if (trip.status !== "Cancelled") {
+    // if (trip.status !== "Cancelled") 
+      if (!["Cancelled", "Emergency", "Completed"].includes(trip.status))
+      {
       const newStatus = updateTripStatus(trip);
 
       if (trip.locationHistory.length === 0 && newStatus === "Completed") {
@@ -312,7 +375,8 @@ exports.trackLocation = async (req, res) => {
     const realTimeStatus =
       start && end ? calculateStatus(start, end) : trip.status;
 
-    if (realTimeStatus === "Completed") {
+    if (!["Cancelled", "Emergency"].includes(trip.status) &&
+  realTimeStatus === "Completed") {
       trip.status = "Completed";
       await trip.save();
       return res.status(400).json({
@@ -392,14 +456,23 @@ exports.getActiveTrip = async (req, res) => {
     const start = combineDateAndTime(trip.startDate, trip.startTime);
     const end = combineDateAndTime(trip.endDate, trip.endTime);
 
-    const status = calculateStatus(start, end);
+    // const status = calculateStatus(start, end);
 
-    if (trip.status !== status) {
-      trip.status = status;
-      await trip.save();
-    }
+    // if (trip.status !== status) {
+    //   trip.status = status;
+    //   await trip.save();
+    // }
 
-    if (status === "Active") {
+    if (!["Cancelled", "Emergency", "Completed"].includes(trip.status)) {
+  const status = calculateStatus(start, end);
+
+  if (trip.status !== status) {
+    trip.status = status;
+    await trip.save();
+  }
+}
+
+    if (trip.status === "Active") {
       activeTrip = trip;
       break;
     }
@@ -426,7 +499,9 @@ exports.getTripById = async (req, res) => {
     }
 
     // ✅ Don't override cancelled
-    if (trip.status !== "Cancelled") {
+    // if (trip.status !== "Cancelled") 
+      if (!["Cancelled", "Emergency", "Completed"].includes(trip.status))
+      {
       const newStatus = updateTripStatus(trip);
 
       if (trip.status !== newStatus) {
@@ -528,4 +603,24 @@ exports.updateLocation = async (req, res) => {
   }
 };
 
+exports.triggerEmergency = async (req, res) => {
+  try {
+    const { tripId } = req.params;
 
+    const trip = await TripModel.findOneAndUpdate(
+      { tripId },
+      {
+        status: "Emergency",
+        emergencyTriggeredAt: new Date(),
+      },
+      { new: true }
+    );
+
+    res.json({
+      message: "Emergency triggered!",
+      trip,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};

@@ -338,36 +338,6 @@ const Dashboard = () => {
     fetchRoute();
   }, [liveLocation, destination]);
 
-  // const cancelTrip = async (trip) => {
-  //   try {
-  //     await axios.put(
-  //       `http://localhost:8000/api/trips/cancel-trip/${trip.tripId}`,
-  //       { reason: "User cancelled manually" },
-  //       { withCredentials: true },
-  //     );
-
-  //     alert("Trip Cancelled Successfully");
-
-  //     // ✅ Stop polling
-  //     clearInterval(intervalRef.current);
-
-  //     // ✅ Immediately refresh trip data
-  //     const res = await axios.get("http://localhost:8000/api/trips/myTrip", {
-  //       withCredentials: true,
-  //     });
-
-  //     const active = res.data.find((t) => t.status === "Active");
-
-  //     if (!active) {
-  //       setLiveLocation(null);
-  //       setHistory([]);
-  //       setDestination(null);
-  //     }
-  //   } catch (error) {
-  //     console.error(error);
-  //   }
-  // };
-
   const cancelTrip = async (trips) => {
     try {
       await axios.put(
@@ -381,7 +351,8 @@ const Dashboard = () => {
       // ✅ Update trips instantly without waiting for API refresh
       setTrips((prevTrips) =>
         prevTrips.map((t) =>
-          t.tripId === trips.tripId ? { ...t, status: "Cancelled" } : t,
+          t.tripId === trips.tripId ? { ...t, status: "Cancelled",cancelReason: "User cancelled manually",
+          cancelledAt: new Date(), } : t,
         ),
       );
 
@@ -447,20 +418,35 @@ const Dashboard = () => {
     }
   };
 
+  // const getStatusColor = (status) => {
+  //   switch (status) {
+  //     case "Active":
+  //       return "success";
+  //     case "Pending":
+  //       return "warning";
+  //     case "Cancelled":
+  //       return "error";
+  //     case "Completed":
+  //       return "primary";
+  //     default:
+  //       return "default";
+  //   }
+  // };
+
   const getStatusColor = (status) => {
-    switch (status) {
-      case "Active":
-        return "success";
-      case "Pending":
-        return "warning";
-      case "Cancelled":
-        return "error";
-      case "Completed":
-        return "primary";
-      default:
-        return "default";
-    }
-  };
+  switch (status) {
+    case "Emergency":
+      return "red";
+    case "Cancelled":
+      return "gray";
+    case "Completed":
+      return "green";
+    case "Active":
+      return "blue";
+    default:
+      return "orange";
+  }
+};
 
   return (
     <div className="dashboard">
