@@ -13,8 +13,10 @@ const getWeatherData = async (lat, lon) => {
         },
       }
     );
-
+    
+    // console.log("Weather Data:", response.data);
     return response.data;
+  
   } catch (error) {
     console.error("Weather API Error:", error.message);
     return null;

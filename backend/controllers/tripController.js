@@ -6,6 +6,12 @@ const { v4: uuidv4 } = require("uuid");
 const axios = require("axios");
 const { checkWeatherAlert } = require("../util/weatherAlert");
 const { getWeatherData } = require("../util/weatherService.js");
+const { getTrafficData } = require("../util/trafficService");
+const { checkAlerts } = require("../util/alertService");
+
+// ===============================
+// 🔧 HELPER FUNCTIONS
+// ===============================
 
 const updateTripStatus = (trip) => {
   const now = new Date();
@@ -30,6 +36,32 @@ const updateTripStatus = (trip) => {
   return "Completed";
 };
 
+function combineDateAndTime(date, time) {
+  if (!date || !time) return null;
+
+  const [hours, minutes] = time.split(":");
+
+  const combined = new Date(date); // already UTC internally
+  combined.setHours(Number(hours));
+  combined.setMinutes(Number(minutes));
+  combined.setSeconds(0);
+  combined.setMilliseconds(0);
+
+  return combined;
+}
+exports.combineDateAndTime = combineDateAndTime;
+
+function calculateStatus(start, end) {
+  const now = new Date();
+
+  if (now < start) return "Pending";
+  if (now >= start && now <= end) return "Active";
+  return "Completed";
+}
+
+// ===============================
+// 🚀 REGISTER TRIP
+// ===============================
 exports.registerTrip = async (req, res) => {
   try {
     if (!req.user) {
@@ -114,7 +146,14 @@ exports.registerTrip = async (req, res) => {
           return;
         }
 
-        const user = await User.findById(userId);
+        // const user = await User.findById(userId);
+        //         const emails = [newTrip.traveler?.email, req.user?.email].filter(Boolean);
+
+        // for (const email of emails) {
+        //   await sendEmail(email, "Weather Update for Your Upcoming Trip", emailTemplate);
+        // }
+
+        const user = newTrip.traveler?.email;
         if (!user) {
           console.log("User not found");
           return;
@@ -129,16 +168,6 @@ exports.registerTrip = async (req, res) => {
 
         // ✅ Now create icon URL
         const iconUrl = `http://openweathermap.org/img/wn/${icon}@2x.png`;
-
-        //     const emailTemplate = `
-        //   <div style="font-family: Arial; padding: 20px;">
-        //     <h2>Weather Update for Your Trip</h2>
-        //     <p><strong>Destination:</strong> ${to.name}</p>
-        //     <p><strong>Condition:</strong> ${weatherCondition}</p>
-        //     <p><strong>Temperature:</strong> ${temperature}°C</p>
-        //     <p>Have a safe journey!</p>
-        //   </div>
-        // `;
 
         const emailTemplate = `
   <div style="font-family: Arial; padding: 20px; background: #f5f7fa; border-radius: 10px;">
@@ -182,7 +211,8 @@ exports.registerTrip = async (req, res) => {
 `;
 
         await sendEmail(
-          user.email,
+          // user.email,
+          user,
           "Weather Update for Your Upcoming Trip",
           emailTemplate,
         );
@@ -198,28 +228,6 @@ exports.registerTrip = async (req, res) => {
   }
 };
 
-function combineDateAndTime(date, time) {
-  if (!date || !time) return null;
-
-  const [hours, minutes] = time.split(":");
-
-  const combined = new Date(date); // already UTC internally
-  combined.setHours(Number(hours));
-  combined.setMinutes(Number(minutes));
-  combined.setSeconds(0);
-  combined.setMilliseconds(0);
-
-  return combined;
-}
-
-function calculateStatus(start, end) {
-  const now = new Date();
-
-  if (now < start) return "Pending";
-  if (now >= start && now <= end) return "Active";
-  return "Completed";
-}
-
 exports.getUserTrips = async (req, res) => {
   try {
     const trips = await TripModel.find({ userId: req.user._id });
@@ -232,8 +240,8 @@ exports.getUserTrips = async (req, res) => {
         // }
 
         if (["Cancelled", "Emergency", "Completed"].includes(trip.status)) {
-  return trip;
-}
+          return trip;
+        }
 
         const start = combineDateAndTime(trip.startDate, trip.startTime);
         const end = combineDateAndTime(trip.endDate, trip.endTime);
@@ -256,6 +264,9 @@ exports.getUserTrips = async (req, res) => {
   }
 };
 
+// ===============================
+// ❌ CANCEL TRIP
+// ===============================
 exports.cancelTrip = async (req, res) => {
   try {
     const { tripId } = req.params; // or req.params.id depending on your route
@@ -338,6 +349,9 @@ exports.cancelTrip = async (req, res) => {
   }
 };
 
+// ===============================
+// 📍 TRACK LOCATION + ALERTS
+// ===============================
 exports.trackLocation = async (req, res) => {
   try {
     const { tripId, lat, lng } = req.body;
@@ -357,9 +371,8 @@ exports.trackLocation = async (req, res) => {
       });
     }
 
-    // if (trip.status !== "Cancelled") 
-      if (!["Cancelled", "Emergency", "Completed"].includes(trip.status))
-      {
+    // if (trip.status !== "Cancelled")
+    if (!["Cancelled", "Emergency", "Completed"].includes(trip.status)) {
       const newStatus = updateTripStatus(trip);
 
       if (trip.locationHistory.length === 0 && newStatus === "Completed") {
@@ -375,8 +388,10 @@ exports.trackLocation = async (req, res) => {
     const realTimeStatus =
       start && end ? calculateStatus(start, end) : trip.status;
 
-    if (!["Cancelled", "Emergency"].includes(trip.status) &&
-  realTimeStatus === "Completed") {
+    if (
+      !["Cancelled", "Emergency"].includes(trip.status) &&
+      realTimeStatus === "Completed"
+    ) {
       trip.status = "Completed";
       await trip.save();
       return res.status(400).json({
@@ -393,6 +408,11 @@ exports.trackLocation = async (req, res) => {
     });
 
     await trip.save();
+    try {
+      await checkAlerts(trip);
+    } catch (err) {
+      console.error("Alert error:", err);
+    }
 
     // ===============================
     // 🌦 WEATHER ALERT LOGIC ADDED
@@ -412,33 +432,33 @@ exports.trackLocation = async (req, res) => {
     console.log("Current Weather:", weatherCondition);
 
     // ✅ SEND EMAIL ONLY IF WEATHER CHANGED
-    if (trip.lastWeatherCondition !== weatherCondition) {
-      console.log("Weather changed! Sending email...");
+    // if (trip.lastWeatherCondition !== weatherCondition) {
+    //   console.log("Weather changed! Sending email...");
 
-      const user = await User.findById(trip.userId);
+    //   const user = await User.findById(trip.userId);
 
-      if (user) {
-        await sendEmail(
-          user.email,
-          "🌦 Live Weather Update",
-          `
-      <div style="font-family: Arial; padding: 20px;">
-        <h2>Weather Update During Your Trip</h2>
-        <p><strong>Location:</strong> ${lat}, ${lng}</p>
-        <p><strong>Condition:</strong> ${weatherCondition}</p>
-        <p><strong>Temperature:</strong> ${temperature}°C</p>
-        <p>Travel safely!</p>
-      </div>
-      `,
-        );
+    //   if (user) {
+    //     await sendEmail(
+    //       user.email,
+    //       "🌦 Live Weather Update",
+    //       `
+    //   <div style="font-family: Arial; padding: 20px;">
+    //     <h2>Weather Update During Your Trip</h2>
+    //     <p><strong>Location:</strong> ${lat}, ${lng}</p>
+    //     <p><strong>Condition:</strong> ${weatherCondition}</p>
+    //     <p><strong>Temperature:</strong> ${temperature}°C</p>
+    //     <p>Travel safely!</p>
+    //   </div>
+    //   `,
+    //     );
 
-        console.log("Weather update email sent!");
+    //     console.log("Weather update email sent!");
 
-        // ✅ Update last weather condition
-        trip.lastWeatherCondition = weatherCondition;
-        await trip.save();
-      }
-    }
+    //     // ✅ Update last weather condition
+    //     trip.lastWeatherCondition = weatherCondition;
+    //     await trip.save();
+    //   }
+    // }
 
     res.status(200).json({ message: "Location stored" });
   } catch (error) {
@@ -464,13 +484,13 @@ exports.getActiveTrip = async (req, res) => {
     // }
 
     if (!["Cancelled", "Emergency", "Completed"].includes(trip.status)) {
-  const status = calculateStatus(start, end);
+      const status = calculateStatus(start, end);
 
-  if (trip.status !== status) {
-    trip.status = status;
-    await trip.save();
-  }
-}
+      if (trip.status !== status) {
+        trip.status = status;
+        await trip.save();
+      }
+    }
 
     if (trip.status === "Active") {
       activeTrip = trip;
@@ -499,9 +519,8 @@ exports.getTripById = async (req, res) => {
     }
 
     // ✅ Don't override cancelled
-    // if (trip.status !== "Cancelled") 
-      if (!["Cancelled", "Emergency", "Completed"].includes(trip.status))
-      {
+    // if (trip.status !== "Cancelled")
+    if (!["Cancelled", "Emergency", "Completed"].includes(trip.status)) {
       const newStatus = updateTripStatus(trip);
 
       if (trip.status !== newStatus) {
@@ -603,6 +622,9 @@ exports.updateLocation = async (req, res) => {
   }
 };
 
+// ===============================
+// 🚨 EMERGENCY
+// ===============================
 exports.triggerEmergency = async (req, res) => {
   try {
     const { tripId } = req.params;
@@ -613,7 +635,7 @@ exports.triggerEmergency = async (req, res) => {
         status: "Emergency",
         emergencyTriggeredAt: new Date(),
       },
-      { new: true }
+      { new: true },
     );
 
     res.json({
@@ -622,5 +644,92 @@ exports.triggerEmergency = async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+};
+
+//for mapbox traffic data, not used currently
+exports.checkTrafficAndSendAlert = async (req, res) => {
+  try {
+    const { tripId } = req.body;
+
+    if (!tripId) {
+      return res.status(400).json({ message: "TripId is required" });
+    }
+
+    const trip = await TripModel.findOne({
+      tripId,
+      userId: req.user._id,
+    });
+
+    if (!trip) {
+      return res.status(404).json({ message: "Trip not found" });
+    }
+
+    const start = trip.liveLocation || trip.from;
+    const end = trip.to;
+
+    if (!start?.lat || !start?.lng || !end?.lat || !end?.lng) {
+      return res.status(400).json({ message: "Invalid coordinates" });
+    }
+
+    const traffic = await getTrafficData(start, end);
+
+    if (!traffic) {
+      return res.json({ message: "No traffic data available" });
+    }
+
+    // ✅ FIXED ALERT LOGIC
+    let alert = "Smooth";
+
+    if (traffic.congestion?.some((c) => c === "heavy")) {
+      alert = "Heavy Traffic 🚨";
+    } else if (traffic.congestion?.some((c) => c === "moderate")) {
+      alert = "Moderate Traffic ⚠️";
+    } else if (traffic.congestion?.length > 0) {
+      alert = "Light Traffic 🟢";
+    }
+
+    // console.log("Traffic Raw Data:", traffic);
+
+    // ✅ SEND EMAIL ONLY IF HEAVY
+    if (alert === "Heavy Traffic 🚨") {
+      // const user = await User.findById(trip.userId);
+      const user = trip.traveler?.email;
+
+      if (user && trip.lastTrafficAlert !== alert) {
+        await sendEmail(
+          user.email,
+          "🚨 Traffic Alert on Your Route",
+          `
+          <div style="font-family: Arial; padding: 20px;">
+            <h2>🚗 Traffic Alert</h2>
+            <p><strong>Route:</strong> ${trip.from.name} → ${trip.to.name}</p>
+            <p><strong>Status:</strong> ${alert}</p>
+            <p><strong>Distance:</strong> ${(traffic.distance / 1000).toFixed(2)} km</p>
+            <p><strong>Estimated Time:</strong> ${(traffic.duration / 60).toFixed(1)} mins</p>
+            <p style="color:red;">⚠ Please consider alternate routes</p>
+          </div>
+          `,
+        );
+
+        trip.lastTrafficAlert = alert;
+        await trip.save();
+
+        console.log("✅ Traffic alert email sent!");
+      }
+    }
+
+    return res.json({
+      alert,
+      distance: (traffic.distance / 1000).toFixed(2),
+      duration: (traffic.duration / 60).toFixed(1),
+    });
+  } catch (err) {
+    console.error("❌ Traffic Alert Error:", err);
+
+    return res.status(500).json({
+      message: "Traffic API failed",
+      error: err.message,
+    });
   }
 };

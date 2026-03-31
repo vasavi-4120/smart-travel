@@ -207,6 +207,10 @@ const TripSchema = new mongoose.Schema(
     lastWeatherCondition: {
       type: String,
     },
+    lastTrafficAlert: {
+      type: String,
+      default: "",
+    },
   },
   { timestamps: true },
 );
