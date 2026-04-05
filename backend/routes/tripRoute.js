@@ -15,6 +15,7 @@ const {
 } = require("../controllers/tripController");
 
 const { userVerification } = require("../middlewares/AuthMiddleware");
+const  requireAuth  = require("../middlewares/requireAuth");
 
 // ===============================
 // ✅ ACTION ROUTES
@@ -33,8 +34,8 @@ router.put("/trigger-emergency/:tripId", userVerification, triggerEmergency);
 // ===============================
 // ✅ FETCH ROUTES
 // ===============================
-router.get("/myTrip", userVerification, getUserTrips);
-router.get("/active", userVerification, getActiveTrip);
+router.get("/myTrip", userVerification,requireAuth, getUserTrips);
+router.get("/active", userVerification,requireAuth, getActiveTrip);
 router.get("/geocode", userVerification, geocodeLocation);
 
 // 🔴 ALWAYS KEEP LAST

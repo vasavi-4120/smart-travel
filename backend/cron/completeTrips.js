@@ -37,6 +37,7 @@ cron.schedule("*/5 * * * *", async () => {
     const bulkOps = [];
 
     for (let trip of trips) {
+      if (trip.status === "Emergency") continue;
       const end = combineDateAndTime(trip.endDate, trip.endTime);
 
       if (end && new Date() > end) {

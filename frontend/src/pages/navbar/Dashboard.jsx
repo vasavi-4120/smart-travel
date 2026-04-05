@@ -66,6 +66,9 @@ import {
 } from "react-leaflet";
 import SafetyMap from "../../components/SafetyMap";
 import SafeRouteMap from "../../components/SafeRouteMap";
+import { useContext } from "react";
+import { userDataContext } from "../../context/UserContext";
+// import  showSOSOnMap  from "../../components/SafeRouteMap";
 
 import L from "leaflet";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
@@ -91,6 +94,7 @@ const Dashboard = () => {
   const [activeTrip, setActiveTrip] = useState(null);
   const [destination, setDestination] = useState(null);
   const [trips, setTrips] = useState([]);
+  const { userData } = useContext(userDataContext);
 
   const [liveLocation, setLiveLocation] = useState(null);
   const [history, setHistory] = useState([]);
@@ -180,24 +184,46 @@ const Dashboard = () => {
     "Keep valuables secure",
   ];
 
+  // useEffect(() => {
+  //   axios
+  //     .get("http://localhost:8000/api/trips/myTrip", {
+  //       withCredentials: true,
+  //     })
+  //     .then((res) => {
+  //       if (res.data && res.data.length > 0) {
+  //         setTrips(res.data);
+
+  //         const active = res.data.find((trip) => trip.status === "Active");
+
+  //         if (active) {
+  //           setActiveTrip(active);
+  //         }
+  //       }
+  //     })
+  //     .catch((err) => console.log(err));
+  // }, []);
+
   useEffect(() => {
-    axios
-      .get("http://localhost:8000/api/trips/myTrip", {
-        withCredentials: true,
-      })
-      .then((res) => {
-        if (res.data && res.data.length > 0) {
-          setTrips(res.data);
+  if (!userData) return;
 
-          const active = res.data.find((trip) => trip.status === "Active");
+  axios
+    .get("http://localhost:8000/api/trips/myTrip", {
+      withCredentials: true,
+    })
+    .then((res) => {
+      if (res.data?.length > 0) {
+        setTrips(res.data);
 
-          if (active) {
-            setActiveTrip(active);
-          }
-        }
-      })
-      .catch((err) => console.log(err));
-  }, []);
+        const active = res.data.find((trip) => trip.status === "Active");
+        if (active) setActiveTrip(active);
+      }
+    })
+    .catch((err) => {
+      if (err.response?.status !== 401) {
+        console.log(err);
+      }
+    });
+}, [userData]);
 
   const lastSentTimeRef = useRef(0);
 
@@ -268,38 +294,42 @@ const Dashboard = () => {
   }, []);
 
   useEffect(() => {
-    const fetchTrip = async () => {
-      try {
-        const res = await axios.get("http://localhost:8000/api/trips/myTrip", {
-          withCredentials: true,
-        });
+  if (!userData) return; // 🚫 STOP EVERYTHING
 
-        const active = res.data.find((trip) => trip.status === "Active");
+  const fetchTrip = async () => {
+    try {
+      const res = await axios.get(
+        "http://localhost:8000/api/trips/myTrip",
+        { withCredentials: true }
+      );
 
-        if (active) {
-          setLiveLocation(active.liveLocation);
-          setHistory(active.locationHistory || []);
-          setDestination(active.to);
-        } else {
-          // No active trip → reset UI
-          setLiveLocation(null);
-          setHistory([]);
-          setDestination(null);
-          setRouteCoords([]);
-        }
-      } catch (err) {
+      const active = res.data.find((trip) => trip.status === "Active");
+
+      if (active) {
+        setLiveLocation(active.liveLocation);
+        setHistory(active.locationHistory || []);
+        setDestination(active.to);
+      } else {
+        setLiveLocation(null);
+        setHistory([]);
+        setDestination(null);
+        setRouteCoords([]);
+      }
+    } catch (err) {
+      if (err.response?.status !== 401) {
         console.log(err);
       }
-    };
+    }
+  };
 
-    fetchTrip();
+  fetchTrip();
 
-    intervalRef.current = setInterval(fetchTrip, 10000);
+  intervalRef.current = setInterval(fetchTrip, 10000);
 
-    return () => {
-      clearInterval(intervalRef.current);
-    };
-  }, []);
+  return () => {
+    clearInterval(intervalRef.current);
+  };
+}, [userData]); // ✅ IMPORTANT
 
   useEffect(() => {
     const fetchRoute = async () => {
@@ -341,7 +371,7 @@ const Dashboard = () => {
   const cancelTrip = async (trips) => {
     try {
       await axios.put(
-        `http://localhost:8000/api/trips/cancel-trip/${trips.tripId}`,
+        `http://localhost:8000/api/trips/cancel-trip/${trips[0].tripId}`,
         { reason: "User cancelled manually" },
         { withCredentials: true },
       );
@@ -351,8 +381,14 @@ const Dashboard = () => {
       // ✅ Update trips instantly without waiting for API refresh
       setTrips((prevTrips) =>
         prevTrips.map((t) =>
-          t.tripId === trips.tripId ? { ...t, status: "Cancelled",cancelReason: "User cancelled manually",
-          cancelledAt: new Date(), } : t,
+          t.tripId === trips.tripId
+            ? {
+                ...t,
+                status: "Cancelled",
+                cancelReason: "User cancelled manually",
+                cancelledAt: new Date(),
+              }
+            : t,
         ),
       );
 
@@ -392,8 +428,13 @@ const Dashboard = () => {
   };
 
   const handleEmergencySOS = () => {
-    // In real app, this would trigger emergency protocols
-    alert("Emergency SOS activated! Help is on the way.");
+    if (!activeTrip?.tripId) {
+      alert("❌ No active trip found");
+      return;
+    }
+
+    alert("🚨 Emergency SOS activated!");
+
     setEmergencyAlerts((prev) => [
       ...prev,
       {
@@ -403,6 +444,56 @@ const Dashboard = () => {
         time: new Date().toLocaleTimeString(),
       },
     ]);
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const { latitude, longitude } = pos.coords;
+
+          const res = await fetch(
+            `http://localhost:8000/api/trips/trigger-emergency/${activeTrip.tripId}`,
+            {
+              method: "PUT", // ✅ FIXED
+              headers: {
+                "Content-Type": "application/json",
+              },
+              credentials: "include",
+              body: JSON.stringify({ latitude, longitude }),
+            },
+          );
+
+          const text = await res.text();
+
+          let data;
+          try {
+            data = JSON.parse(text);
+          } catch {
+            throw new Error("Invalid server response");
+          }
+
+          if (!res.ok) throw new Error(data.message);
+
+          alert("✅ SOS sent successfully!");
+
+          // if (data.nearbyPlaces) {
+          //   showSOSOnMap(latitude, longitude, data.nearbyPlaces);
+          // }
+          if (data.nearbyPlaces) {
+            if (window.showSOSOnMap) {
+              window.showSOSOnMap(latitude, longitude, data.nearbyPlaces);
+            } else {
+              console.log("⚠️ Map function not ready yet");
+            }
+          }
+        } catch (error) {
+          console.error(error);
+          alert("❌ Failed to send SOS. Try again.");
+        }
+      },
+      () => {
+        alert("❌ Location access denied.");
+      },
+    );
   };
 
   const getPriorityColor = (priority) => {
@@ -418,35 +509,37 @@ const Dashboard = () => {
     }
   };
 
-  // const getStatusColor = (status) => {
-  //   switch (status) {
-  //     case "Active":
-  //       return "success";
-  //     case "Pending":
-  //       return "warning";
-  //     case "Cancelled":
-  //       return "error";
-  //     case "Completed":
-  //       return "primary";
-  //     default:
-  //       return "default";
-  //   }
-  // };
-
-  const getStatusColor = (status) => {
+  const getStatusChipColor = (status) => {
   switch (status) {
     case "Emergency":
-      return "red";
-    case "Cancelled":
-      return "gray";
-    case "Completed":
-      return "green";
+      return "error";
     case "Active":
-      return "blue";
+      return "primary";
+    case "Completed":
+      return "success";
+    case "Pending":
+      return "warning";
+    case "Cancelled":
+      return "default";
     default:
-      return "orange";
+      return "default";
   }
 };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "Emergency":
+        return "red";
+      case "Cancelled":
+        return "gray";
+      case "Completed":
+        return "green";
+      case "Active":
+        return "blue";
+      default:
+        return "orange";
+    }
+  };
 
   return (
     <div className="dashboard">
@@ -521,7 +614,7 @@ const Dashboard = () => {
                       </TableCell>
                       <TableCell>{trip.meansOfTransport}</TableCell>
                       <TableCell>
-                        <Chip
+                        {/* <Chip
                           label={trip.status}
                           size="small"
                           color={
@@ -530,15 +623,17 @@ const Dashboard = () => {
                               : trip.status === "Pending"
                                 ? "warning"
                                 : trip.status === "Cancelled"
-                                  ? "error"
-                                  : "default"
+                                  ? "default"
+                                  : trip.status === "Emergency"
+                                    ? "error"
+                                    : "default"
                           }
-                        />
-                        {/* <Chip
-                          label={trip.status}
-                          size="small"
-                          color={getStatusColor(trip.status)}
                         /> */}
+                        <Chip
+    label={trip.status}
+    size="small"
+    color={getStatusChipColor(trip.status)}
+  />
                       </TableCell>
                       <TableCell>
                         <Button
@@ -565,8 +660,7 @@ const Dashboard = () => {
           )}
         </CardContent>
       </Card>
-      <SafeRouteMap/>
-      
+      <SafeRouteMap />
 
       <Container maxWidth="xl" sx={{ py: 3 }}>
         {/* Quick Stats */}
@@ -842,4 +936,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-

@@ -9,6 +9,7 @@ const {
   GetCurrentUser,
 } = require("../controllers/AuthController");
 const { userVerification } = require("../middlewares/AuthMiddleware");
+const  requireAuth  = require("../middlewares/requireAuth");
 const router = require("express").Router();
 
 const multer = require("multer");
@@ -27,8 +28,8 @@ router.put(
   upload.single("profileImage"),
   updateProfile,
 );
-router.get("/getProfile", userVerification, getProfile);
+router.get("/getProfile", userVerification,requireAuth, getProfile);
 router.get("/verify/:token", VerifyEmail);
-router.get("/me", userVerification, GetCurrentUser);
+router.get("/me", userVerification,requireAuth, GetCurrentUser);
 
 module.exports = router;

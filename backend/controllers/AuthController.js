@@ -3,7 +3,7 @@ const axios = require("axios");
 const User = require("../model/UserModel");
 const { createSecretToken } = require("../util/SecretToken");
 const bcrypt = require("bcryptjs");
-const sendEmail = require("../util/sendEmail");
+const { sendEmail } = require("../util/sendEmail");
 // const sendSMS = require("../util/sendSMS");
 const crypto = require("crypto"); // Standard Node.js module
 const twilio = require('twilio'); //for mobile notifications
@@ -265,6 +265,6 @@ module.exports.GetCurrentUser = async (req, res) => {
     // This MUST match what your React context expects (res.data.user)
     res.status(200).json({ user }); 
   } catch (err) {
-    res.status(401).json({ user: null });
+    res.status(200).json({ user: null });
   }
 };

@@ -1,4 +1,4 @@
-import React, { useContext, useMemo, useEffect , useState } from "react";
+import React, { useContext, useMemo, useEffect, useState } from "react";
 import profile from "../../assets/profile.png";
 import { userDataContext } from "../../context/UserContext";
 import axios from "axios";
@@ -48,7 +48,7 @@ const dummyUser = {
 function Profile() {
   const { userData, setUserData, loading } = useContext(userDataContext);
   const navigate = useNavigate();
-   const [trips, setTrips] = useState([]);
+  const [trips, setTrips] = useState([]);
 
   // Memoize the user object to avoid unnecessary object creation on every render
   const user = useMemo(
@@ -118,21 +118,63 @@ function Profile() {
     }
   };
 
+  //   useEffect(() => {
+  //   const fetchTrips = async () => {
+  //     try {
+  //       const res = await axios.get(
+  //         "http://localhost:8000/api/trips/myTrip",
+  //         { withCredentials: true }
+  //       );
+  //       setTrips(res.data);
+  //     } catch (err) {
+  //       console.error("Failed to fetch trips", err);
+  //     }
+  //   };
+
+  //   fetchTrips();
+  // }, []);
+
   useEffect(() => {
-  const fetchTrips = async () => {
-    try {
-      const res = await axios.get(
-        "http://localhost:8000/api/trips/myTrip",
-        { withCredentials: true }
-      );
-      setTrips(res.data);
-    } catch (err) {
-      console.error("Failed to fetch trips", err);
+    const fetchTrips = async () => {
+      try {
+        const res = await axios.get("http://localhost:8000/api/trips/myTrip", {
+          withCredentials: true,
+        });
+        setTrips(res.data);
+      } catch (err) {
+        if (err.response?.status === 401) {
+          // ✅ Expected when not logged in
+          setTrips([]);
+        } else {
+          console.error("Failed to fetch trips", err);
+        }
+      }
+    };
+
+    // 🚀 Only call if user is logged in
+    if (userData) {
+      fetchTrips();
+    } else {
+      setTrips([]); // clear trips for guest
+    }
+  }, [userData]);
+
+  const getStatusChipColor = (status) => {
+    switch (status) {
+      case "Emergency":
+        return "error";
+      case "Active":
+        return "primary";
+      case "Completed":
+        return "success";
+      case "Pending":
+        return "warning";
+      case "Cancelled":
+        return "default";
+      default:
+        return "default";
     }
   };
-
-  fetchTrips();
-}, []);
 
   if (loading) return <p className="text-center mt-10">Loading...</p>;
 
@@ -193,7 +235,9 @@ function Profile() {
         <h2 className="text-xl font-semibold text-center text-violet-800 mb-4">
           Trip History
         </h2>
-        {trips.length === 0 ? (
+        {!userData ? (
+          <Alert severity="warning">Please login to view your trips</Alert>
+        ) : trips.length === 0 ? (
           <Alert severity="info">No trips registered</Alert>
         ) : (
           <TableContainer component={Paper}>
@@ -224,13 +268,7 @@ function Profile() {
                       <Chip
                         label={trip.status}
                         size="small"
-                        color={
-                          trip.status === "Active"
-                            ? "success"
-                            : trip.status === "Pending"
-                              ? "warning"
-                              : "default"
-                        }
+                        color={getStatusChipColor(trip.status)}
                       />
                     </TableCell>
                   </TableRow>

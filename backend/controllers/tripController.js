@@ -1,13 +1,15 @@
 const mongoose = require("mongoose");
 const TripModel = require("../model/TripModel.js");
 const User = require("../model/UserModel");
-const sendEmail = require("../util/sendEmail");
+const { sendEmail, sendEmergencyEmail } = require("../util/sendEmail");
+const { sendSMS } = require("../util/sendSms");
 const { v4: uuidv4 } = require("uuid");
 const axios = require("axios");
 const { checkWeatherAlert } = require("../util/weatherAlert");
 const { getWeatherData } = require("../util/weatherService.js");
 const { getTrafficData } = require("../util/trafficService");
 const { checkAlerts } = require("../util/alertService");
+const { getNearbyPlaces } = require("../util/mapService.js");
 
 // ===============================
 // 🔧 HELPER FUNCTIONS
@@ -17,12 +19,12 @@ const updateTripStatus = (trip) => {
   const now = new Date();
 
   // 🚨 Highest priority
-  if (trip.status === "Emergency") {
-    return "Emergency";
-  }
+  // if (trip.status === "Emergency") {
+  //   return "Emergency";
+  // }
 
   // ❌ Do not override these
-  if (trip.status === "Cancelled" || trip.status === "Completed") {
+  if (trip.status === "Emergency" || trip.status === "Cancelled" || trip.status === "Completed") {
     return trip.status;
   }
 
@@ -230,15 +232,19 @@ exports.registerTrip = async (req, res) => {
 
 exports.getUserTrips = async (req, res) => {
   try {
+    // ✅ Check if user is logged in
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized. Please login first.",
+      });
+    }
+
     const trips = await TripModel.find({ userId: req.user._id });
 
     const updatedTrips = await Promise.all(
       trips.map(async (trip) => {
-        // 🛑 If already cancelled, don't touch it
-        // if (trip.status === "Cancelled") {
-        //   return trip;
-        // }
-
+        // 🛑 Skip fixed statuses
         if (["Cancelled", "Emergency", "Completed"].includes(trip.status)) {
           return trip;
         }
@@ -260,7 +266,11 @@ exports.getUserTrips = async (req, res) => {
 
     res.json(updatedTrips);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("GetUserTrips Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
   }
 };
 
@@ -622,12 +632,41 @@ exports.updateLocation = async (req, res) => {
   }
 };
 
+const getEmergencyNumbers = (contactDetails) => {
+  const numbers = [];
+
+  if (contactDetails.mobileNumber) {
+    numbers.push(contactDetails.mobileNumber);
+  }
+
+  if (contactDetails.emergencyContact1) {
+    numbers.push(contactDetails.emergencyContact1);
+  }
+
+  if (contactDetails.emergencyContact2) {
+    numbers.push(contactDetails.emergencyContact2);
+  }
+
+  if (contactDetails.relationshipContact) {
+    numbers.push(contactDetails.relationshipContact);
+  }
+
+  return numbers;
+};
+
 // ===============================
 // 🚨 EMERGENCY
 // ===============================
+
 exports.triggerEmergency = async (req, res) => {
   try {
     const { tripId } = req.params;
+    const { latitude, longitude } = req.body;
+
+    // console.log("Incoming tripId:", tripId);
+    // console.log("Incoming coordinates:", latitude, longitude);
+    // const checkTrip = await TripModel.findOne({ tripId });
+    // console.log("Trip found BEFORE update:", checkTrip);
 
     const trip = await TripModel.findOneAndUpdate(
       { tripId },
@@ -637,13 +676,45 @@ exports.triggerEmergency = async (req, res) => {
       },
       { new: true },
     );
+    // console.log("Trip found AFTER update:", trip);
+
+    if (!trip) {
+      return res.status(404).json({ message: "Trip not found" });
+    }
+
+    const user = trip.traveler?.email;
+
+    if (!user) {
+      return res.status(400).json({ message: "User email not found" });
+    }
+
+    const contactDetails = trip.contactDetails || {};
+    const phoneNumbers = getEmergencyNumbers(contactDetails);
+
+    const hospitals = await getNearbyPlaces(longitude, latitude, "hospital");
+    const police = await getNearbyPlaces(longitude, latitude, "police");
+
+    const places = [...hospitals.slice(0, 3), ...police.slice(0, 3)];
+
+    // if (process.env.TWILIO_SID && process.env.TWILIO_AUTH_TOKEN) {
+    //   await sendSMS(phoneNumbers, latitude, longitude);
+    // } else {
+    //   console.log("⚠️ Twilio not configured, skipping SMS");
+    // }
+
+    await sendEmergencyEmail(user, latitude, longitude, places);
 
     res.json({
-      message: "Emergency triggered!",
+      message: "🚨 Emergency triggered & alerts sent successfully",
       trip,
+      nearbyPlaces: places,
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(err);
+    res.status(500).json({
+      message: "Error triggering emergency",
+      error: err.message,
+    });
   }
 };
 
