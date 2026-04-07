@@ -14,6 +14,7 @@ function Makeyourtrip() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [validationStatus, setValidationStatus] = useState("");
+  const [errors, setErrors] = useState({});
 
   const [formData, setFormData] = useState({
     traveler: {
@@ -29,10 +30,13 @@ function Makeyourtrip() {
       mobileNumber: "",
       friend1: "",
       emergencyContact1: "",
+      emergencyemail1: "",
       friend2: "",
       emergencyContact2: "",
+      emergencyemail2: "",
       relationship: "",
       relationshipContact: "",
+      relationshipemail: "",
     },
     proof: {
       identityProof: "",
@@ -80,21 +84,61 @@ function Makeyourtrip() {
   };
 
   const handleChange = (section, field, value) => {
-    if (section) {
-      setFormData((prev) => ({
-        ...prev,
-        [section]: {
-          ...prev[section],
-          [field]: value,
-        },
-      }));
-    } else {
-      setFormData((prev) => ({
-        ...prev,
+  let error = "";
+
+  // Validation rules
+  if (field === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+    error = "Invalid email format";
+  }
+  if (field === "name" && value.trim().length < 3) {
+    error = "Name must be at least 3 characters";
+  }
+  if (field === "age" && (isNaN(value) || value <= 0)) {
+    error = "Age must be a positive number";
+  }
+  if (field === "dob" && !value ) {
+    error = "Date of Birth is required";
+  }
+  if (field === "gender" && !["male", "female", "other"].includes(value.toLowerCase())) {
+    error = "Invalid gender";
+  }
+  if (field === "address" && value.trim().length < 5) {
+    error = "Address must be at least 5 characters";
+  }
+  if (field === "mobileNumber" && !/^\d{10}$/.test(value)) {
+    error = "Invalid mobile number";
+  }
+  if (field === "emergencyemail1" && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+    error = "Invalid emergency email 1";
+  }
+  if (field === "relationshipemail" && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+    error = "Invalid relationship email";
+  }
+
+
+
+  // Update form data
+  if (section) {
+    setFormData((prev) => ({
+      ...prev,
+      [section]: {
+        ...prev[section],
         [field]: value,
-      }));
-    }
-  };
+      },
+    }));
+  } else {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  }
+
+  // Update errors
+  setErrors((prev) => ({
+    ...prev,
+    [field]: error,
+  }));
+};
 
   const handleProofImageUpload = async (e) => {
     const file = e.target.files[0];
@@ -184,18 +228,14 @@ function Makeyourtrip() {
 
   const handleRegister = async (e) => {
     e.preventDefault();
+    const hasErrors = Object.values(errors).some((err) => err);
+  if (hasErrors) {
+    alert("Please fix the errors before submitting.");
+    return;
+  }
 
     try {
       setLoading(true);
-
-      // // If coordinates missing, fetch them first
-      // if (!formData.from.lat) {
-      //   await fetchCoordinates(formData.from.name, "from");
-      // }
-
-      // if (!formData.to.lat) {
-      //   await fetchCoordinates(formData.to.name, "to");
-      // }
 
       // Fetch coordinates safely
       const fromCoords = await fetchCoordinates(formData.from.name);
@@ -212,13 +252,6 @@ function Makeyourtrip() {
         setLoading(false);
         return;
       }
-
-      // Re-check after fetching
-      // if (!formData.from.lat || !formData.to.lat) {
-      //   setMessage("Valid From and To locations required");
-      //   setLoading(false);
-      //   return;
-      // }
 
       const genderMap = {
         male: "Male",
@@ -484,7 +517,8 @@ function Makeyourtrip() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block mb-1">Name:</label>
+                  <label className="block mb-1">Name:<span className="text-red-500">*</span>
+</label>
                   <input
                     type="text"
                     // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -494,10 +528,13 @@ focus:outline-none focus:ring-2 focus:ring-blue-500"
                       handleChange("traveler", "name", e.target.value)
                     }
                     placeholder="Enter your name"
+                    required
                   />
+                  {errors.name && <p className="text-red-500 text-sm">{errors.name}</p>}
                 </div>
                 <div>
-                  <label className="block mb-1">Email:</label>
+                  <label className="block mb-1">Email:<span className="text-red-500">*</span>
+</label>
                   <input
                     type="email"
                     // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -507,13 +544,16 @@ focus:outline-none focus:ring-2 focus:ring-blue-500"
                       handleChange("traveler", "email", e.target.value)
                     }
                     placeholder="Enter your email"
+                    required
                   />
+                  {errors.email && <p className="text-red-500 text-sm">{errors.email}</p>}
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block mb-1">Date Of Birth:</label>
+                  <label className="block mb-1">Date Of Birth:<span className="text-red-500">*</span>
+</label>
                   <input
                     type="date"
                     // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -522,10 +562,13 @@ focus:outline-none focus:ring-2 focus:ring-blue-500"
                     onChange={(e) =>
                       handleChange("traveler", "dob", e.target.value)
                     }
+                    required
                   />
+                  {errors.dob && <p className="text-red-500 text-sm">{errors.dob}</p>}
                 </div>
                 <div>
-                  <label className="block mb-1">Gender:</label>
+                  <label className="block mb-1">Gender:<span className="text-red-500">*</span>
+</label>
                   <select
                     // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
                     className="w-full border border-gray-400 rounded px-3 py-2 
@@ -533,18 +576,21 @@ focus:outline-none focus:ring-2 focus:ring-blue-500"
                     onChange={(e) =>
                       handleChange("traveler", "gender", e.target.value)
                     }
+                    required
                   >
                     <option value="">Select gender</option>
                     <option value="male">Male</option>
                     <option value="female">Female</option>
                     <option value="other">Other</option>
                   </select>
+                  {errors.gender && <p className="text-red-500 text-sm">{errors.gender}</p>}
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block mb-1">Age:</label>
+                  <label className="block mb-1">Age:<span className="text-red-500">*</span>
+</label>
                   <input
                     // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
                     className="w-full border border-gray-400 rounded px-3 py-2 
@@ -553,10 +599,13 @@ focus:outline-none focus:ring-2 focus:ring-blue-500"
                       handleChange("traveler", "age", e.target.value)
                     }
                     placeholder="Enter your age"
+                    required
                   />
+                  {errors.age && <p className="text-red-500 text-sm">{errors.age}</p>}
                 </div>
                 <div>
-                  <label className="block mb-1">Nationality:</label>
+                  <label className="block mb-1">Nationality:<span className="text-red-500">*</span>
+</label>
                   <select
                     // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
                     className="w-full border border-gray-400 rounded px-3 py-2 
@@ -564,6 +613,7 @@ focus:outline-none focus:ring-2 focus:ring-blue-500"
                     onChange={(e) =>
                       handleChange("traveler", "nationality", e.target.value)
                     }
+                    required
                   >
                     <option value="india">Indian</option>
                     <option value="united states">United States</option>
@@ -578,7 +628,8 @@ focus:outline-none focus:ring-2 focus:ring-blue-500"
               </div>
 
               <div>
-                <label className="block mb-1">Address:</label>
+                <label className="block mb-1">Address:<span className="text-red-500">*</span>
+</label>
                 <input
                   // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
                   className="w-full border border-gray-400 rounded px-3 py-2 
@@ -587,7 +638,9 @@ focus:outline-none focus:ring-2 focus:ring-blue-500"
                     handleChange("traveler", "address", e.target.value)
                   }
                   placeholder="Enter your address"
+                  required
                 />
+                {errors.address && <p className="text-red-500 text-sm">{errors.address}</p>}
               </div>
             </section>
 
@@ -599,7 +652,8 @@ focus:outline-none focus:ring-2 focus:ring-blue-500"
               {/* <div className="grid grid-cols-2 gap-4"> */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block mb-1">Mobile Number:</label>
+                  <label className="block mb-1">Mobile Number:<span className="text-red-500">*</span>
+</label>
                   <input
                     type="tel"
                     // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -613,11 +667,14 @@ focus:outline-none focus:ring-2 focus:ring-blue-500"
                       )
                     }
                     placeholder="Enter your 10-digit mobile number without country code"
+                    required
                   />
+                  {errors.mobileNumber && <p className="text-orange-500 text-sm">{errors.mobileNumber}</p>}
                 </div>
                 <div></div>
                 <div>
-                  <label className="block mb-1">Friend 1 :</label>
+                  <label className="block mb-1">Friend 1 :<span className="text-red-500">*</span>
+</label>
                   <input
                     type="text"
                     // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -627,10 +684,13 @@ focus:outline-none focus:ring-2 focus:ring-blue-500"
                       handleChange("contactDetails", "friend1", e.target.value)
                     }
                     placeholder="Enter Friend Name"
+                    required
                   />
+                  {errors.name && <p className="text-orange-500 text-sm">{errors.name}</p>}
                 </div>
                 <div>
-                  <label className="block mb-1">Emergency Contact 1 :</label>
+                  <label className="block mb-1">Emergency Contact 1 :<span className="text-red-500">*</span>
+</label>
                   <input
                     type="tel"
                     // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -644,8 +704,31 @@ focus:outline-none focus:ring-2 focus:ring-blue-500"
                       )
                     }
                     placeholder="Enter your 10-digit mobile number without country code"
+                    required
                   />
+                  {errors.emergencyContact1 && <p className="text-orange-500 text-sm">{errors.emergencyContact1}</p>}
                 </div>
+                <div>
+                  <label className="block mb-1">Emergency Email 1 :<span className="text-red-500">*</span>
+</label>
+                  <input
+                    type="email"
+                    // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-gray-400 rounded px-3 py-2 
+focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) =>
+                      handleChange(
+                        "contactDetails",
+                        "emergencyemail1",
+                        e.target.value,
+                      )
+                    }
+                    placeholder="Enter email address"
+                    required
+                  />
+                  {errors.emergencyemail1 && <p className="text-orange-500 text-sm">{errors.emergencyemail1}</p>}
+                </div>
+                <div></div>
                 <div>
                   <label className="block mb-1">Friend 2 :</label>
                   <input
@@ -677,7 +760,26 @@ focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="block mb-1">RelationShip :</label>
+                  <label className="block mb-1">Emergency Email 2 :</label>
+                  <input
+                    type="email"
+                    // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-gray-400 rounded px-3 py-2 
+focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) =>
+                      handleChange(
+                        "contactDetails",
+                        "emergencyemail2",
+                        e.target.value,
+                      )
+                    }
+                    placeholder="Enter email address"
+                  />
+                </div>
+                <div></div>
+                <div>
+                  <label className="block mb-1">RelationShip :<span className="text-red-500">*</span>
+</label>
                   <select
                     // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
                     className="w-full border border-gray-400 rounded px-3 py-2 
@@ -689,6 +791,7 @@ focus:outline-none focus:ring-2 focus:ring-blue-500"
                         e.target.value,
                       )
                     }
+                    required
                   >
                     <option value="">Select relation</option>
                     <option value="father">Father</option>
@@ -698,9 +801,11 @@ focus:outline-none focus:ring-2 focus:ring-blue-500"
                     <option value="spouse">Spouse</option>
                     <option value="other">Other</option>
                   </select>
+                  {errors.relationship && <p className="text-orange-500 text-sm">{errors.relationship}</p>}
                 </div>
                 <div>
-                  <label className="block mb-1">RelationShip Contact :</label>
+                  <label className="block mb-1">RelationShip Contact :<span className="text-red-500">*</span>
+</label>
                   <input
                     type="tel"
                     // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -714,7 +819,29 @@ focus:outline-none focus:ring-2 focus:ring-blue-500"
                       )
                     }
                     placeholder="Enter your 10-digit mobile number without country code"
+                    required
                   />
+                  {errors.relationshipContact && <p className="text-orange-500 text-sm">{errors.relationshipContact}</p>}
+                </div>
+                <div>
+                  <label className="block mb-1">Relationship Email  :<span className="text-red-500">*</span>
+</label>
+                  <input
+                    type="email"
+                    // className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-gray-400 rounded px-3 py-2 
+focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) =>
+                      handleChange(
+                        "contactDetails",
+                        "relationshipemail",
+                        e.target.value,
+                      )
+                    }
+                    placeholder="Enter email address"
+                    required
+                  />
+                  {errors.relationshipemail && <p className="text-orange-500 text-sm">{errors.relationshipemail}</p>}
                 </div>
               </div>
             </section>
@@ -728,7 +855,8 @@ focus:outline-none focus:ring-2 focus:ring-blue-500"
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block mb-1">Identity Proof</label>
+                  <label className="block mb-1">Identity Proof :<span className="text-red-500">*</span>
+</label>
                   <select
                     // className="border border-gray-400 rounded px-3 py-2 w-full"
                     className="w-full border border-gray-400 rounded px-3 py-2 
@@ -739,6 +867,7 @@ focus:outline-none focus:ring-2 focus:ring-blue-500"
                       handleChange("proof", "identityProof", value);
                       setIdentityProof(value);
                     }}
+                    required
                   >
                     <option value="">Select</option>
                     <option value="PAN">PAN</option>
@@ -749,7 +878,8 @@ focus:outline-none focus:ring-2 focus:ring-blue-500"
                   </select>
                 </div>
                 <div>
-                  <label className="block mb-1">Proof Number</label>
+                  <label className="block mb-1">Proof Number :<span className="text-red-500">*</span>
+</label>
                   <input
                     // className="border border-gray-400 rounded px-3 py-2 w-full"
                     className="w-full border border-gray-400 rounded px-3 py-2 
@@ -760,11 +890,13 @@ focus:outline-none focus:ring-2 focus:ring-blue-500"
                       handleChange("proof", "proofNumber", value);
                       setProofNumber(value);
                     }}
+                    required
                   />
                 </div>
 
                 <div>
-                  <label className="block mb-1">Proof Image</label>
+                  <label className="block mb-1">Proof Image :<span className="text-red-500">*</span>
+</label>
                   <input
                     type="file"
                     accept="image/*"
@@ -772,6 +904,7 @@ focus:outline-none focus:ring-2 focus:ring-blue-500"
                     className="w-full border border-gray-400 rounded px-3 py-2 
 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     onChange={handleProofImageUpload}
+                    required
                   />
                 </div>
               </div>
@@ -813,6 +946,7 @@ px-6 py-3 mx-auto rounded-full hover:bg-blue-700 transition"
                 </div>
               )}
             </section>
+
             {/* Trip Details */}
             {validationStatus === "approved" && (
               <section className="flex flex-col gap-4">
@@ -823,7 +957,8 @@ px-6 py-3 mx-auto rounded-full hover:bg-blue-700 transition"
                 {/* <div className="grid grid-cols-2 gap-4"> */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
                   <div>
-                    <label className="block mb-1">From:</label>
+                    <label className="block mb-1">From:<span className="text-red-500">*</span>
+</label>
                     <input
                       // className="border border-gray-400 rounded px-3 py-2 w-full"
                       className="w-full border border-gray-400 rounded px-3 py-2 
@@ -843,11 +978,13 @@ focus:outline-none focus:ring-2 focus:ring-blue-500"
                         fetchCoordinates(formData.from.name, "from")
                       }
                       placeholder="Enter starting place"
+                      required
                     />
                   </div>
 
                   <div>
-                    <label className="block mb-1">To:</label>
+                    <label className="block mb-1">To:<span className="text-red-500">*</span>
+</label>
                     <input
                       // className="border border-gray-400 rounded px-3 py-2 w-full"
                       className="w-full border border-gray-400 rounded px-3 py-2 
@@ -865,10 +1002,12 @@ focus:outline-none focus:ring-2 focus:ring-blue-500"
                       }
                       onBlur={() => fetchCoordinates(formData.to.name, "to")}
                       placeholder="Enter destination"
+                      required
                     />
                   </div>
                   <div>
-                    <label className="block mb-1">Accommodation / Stay :</label>
+                    <label className="block mb-1">Accommodation / Stay :<span className="text-red-500">*</span>
+</label>
                     <textarea
                       type="text"
                       className="border border-gray-400 rounded px-3 py-2 w-[950px]  focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -877,11 +1016,13 @@ focus:outline-none focus:ring-2 focus:ring-blue-500"
                         handleChange(null, "accommodation", e.target.value)
                       }
                       placeholder="Ex : Hotel(sri venkateshwara near railway station) etc."
+                      required
                     />
                   </div>
                   <div></div>
                   <div>
-                    <label className="block mb-1">Purpose of work :</label>
+                    <label className="block mb-1">Purpose of work :<span className="text-red-500">*</span>
+</label>
                     <input
                       type="text"
                       // className="border border-gray-400 rounded px-3 py-2 w-[830px] focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -890,10 +1031,12 @@ focus:outline-none focus:ring-2 focus:ring-blue-500"
                         handleChange(null, "purposeOfWork", e.target.value)
                       }
                       placeholder="Ex : Interview, Meeting, Test, Personal visit  etc."
+                      required
                     />
                   </div>
                   <div>
-                    <label className="block mb-1">Means of transport :</label>
+                    <label className="block mb-1">Means of transport :<span className="text-red-500">*</span>
+</label>
                     <input
                       type="text"
                       // className="border border-gray-400 rounded px-3 py-2 w-[830px] focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -902,10 +1045,12 @@ focus:outline-none focus:ring-2 focus:ring-blue-500"
                         handleChange(null, "meansOfTransport", e.target.value)
                       }
                       placeholder="Ex : Bus, Train, Flight, Car,Bike etc."
+                      required
                     />
                   </div>
                   <div>
-                    <label className="block mb-1">Starting Date:</label>
+                    <label className="block mb-1">Starting Date:<span className="text-red-500">*</span>
+</label>
                     <input
                       type="date"
                       className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -913,10 +1058,12 @@ focus:outline-none focus:ring-2 focus:ring-blue-500"
                         handleChange(null, "startDate", e.target.value)
                       }
                       placeholder="start date of trip"
+                      required
                     />
                   </div>
                   <div>
-                    <label className="block mb-1">Ending Date:</label>
+                    <label className="block mb-1">Ending Date:<span className="text-red-500">*</span>
+</label>
                     <input
                       type="date"
                       className="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -924,11 +1071,12 @@ focus:outline-none focus:ring-2 focus:ring-blue-500"
                         handleChange(null, "endDate", e.target.value)
                       }
                       placeholder="end date of trip"
+                      required
                     />
                   </div>
                   <div>
                     <label className="block mb-1">
-                      Start Time: [ Enter time in 24hr format ]
+                      Start Time: [ Enter time in 24hr format ]<span className="text-red-500">*</span>
                     </label>
                     <input
                       type="time"
@@ -939,11 +1087,12 @@ focus:outline-none focus:ring-2 focus:ring-blue-500"
                       onChange={(e) =>
                         handleChange(null, "startTime", e.target.value)
                       }
+                      required
                     />
                   </div>
                   <div>
                     <label className="block mb-1">
-                      End Time: [ Enter time in 24hr format ]
+                      End Time: [ Enter time in 24hr format ]<span className="text-red-500">*</span>
                     </label>
                     <input
                       type="time"
@@ -954,11 +1103,12 @@ focus:outline-none focus:ring-2 focus:ring-blue-500"
                       onChange={(e) =>
                         handleChange(null, "endTime", e.target.value)
                       }
+                      required
                     />
                   </div>
                   <div>
                     <label className="block mb-1">
-                      Number of Days Staying:
+                      Number of Days Staying:<span className="text-red-500">*</span>
                     </label>
                     <input
                       type="number"
@@ -971,11 +1121,12 @@ focus:outline-none focus:ring-2 focus:ring-blue-500"
                         )
                       }
                       placeholder="number of days staying"
+                      required
                     />
                   </div>
                   <div>
                     <label className="block mb-1">
-                      Number of people travelling in trip:
+                      Number of people travelling in trip:<span className="text-red-500">*</span>
                     </label>
                     <input
                       type="number"
@@ -988,6 +1139,7 @@ focus:outline-none focus:ring-2 focus:ring-blue-500"
                         )
                       }
                       placeholder="number of people travelling"
+                      required
                     />
                   </div>
                 </div>

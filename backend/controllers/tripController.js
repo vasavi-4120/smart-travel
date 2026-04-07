@@ -8,8 +8,10 @@ const axios = require("axios");
 const { checkWeatherAlert } = require("../util/weatherAlert");
 const { getWeatherData } = require("../util/weatherService.js");
 const { getTrafficData } = require("../util/trafficService");
+const { getTrafficStatus } = require("../util/trafficService");
 const { checkAlerts } = require("../util/alertService");
 const { getNearbyPlaces } = require("../util/mapService.js");
+const { getDistance } = require("../util/mapService.js");
 
 // ===============================
 // 🔧 HELPER FUNCTIONS
@@ -18,13 +20,12 @@ const { getNearbyPlaces } = require("../util/mapService.js");
 const updateTripStatus = (trip) => {
   const now = new Date();
 
-  // 🚨 Highest priority
-  // if (trip.status === "Emergency") {
-  //   return "Emergency";
-  // }
-
   // ❌ Do not override these
-  if (trip.status === "Emergency" || trip.status === "Cancelled" || trip.status === "Completed") {
+  if (
+    trip.status === "Emergency" ||
+    trip.status === "Cancelled" ||
+    trip.status === "Completed"
+  ) {
     return trip.status;
   }
 
@@ -550,6 +551,24 @@ exports.getTripById = async (req, res) => {
   }
 };
 
+// controllers/tripController.js
+exports.deleteTrip = async (req, res) => {
+  try {
+    const { tripId } = req.params;
+
+    const trip = await TripModel.findOneAndDelete({ tripId });
+
+    if (!trip) {
+      return res.status(404).json({ message: "Trip not found" });
+    }
+
+    res.json({ message: "Trip deleted successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error deleting trip" });
+  }
+};
+
 const cache = {};
 
 exports.geocodeLocation = async (req, res) => {
@@ -691,10 +710,31 @@ exports.triggerEmergency = async (req, res) => {
     const contactDetails = trip.contactDetails || {};
     const phoneNumbers = getEmergencyNumbers(contactDetails);
 
-    const hospitals = await getNearbyPlaces(longitude, latitude, "hospital");
-    const police = await getNearbyPlaces(longitude, latitude, "police");
+    const hospitals = await getNearbyPlaces(latitude, longitude, "hospital");
+    const police = await getNearbyPlaces(latitude, longitude, "police");
 
-    const places = [...hospitals.slice(0, 3), ...police.slice(0, 3)];
+    const combined = [...hospitals, ...police];
+
+// ✅ remove duplicates
+const uniquePlaces = Array.from(
+  new Map(combined.map((p) => [p.display_name, p])).values()
+);
+
+  const nearestPlaces = [
+  ...hospitals.slice(0, 5), // top 5 hospitals
+  ...police.slice(0, 2),    // top 2 police
+];
+
+// ✅ format for frontend + email
+const formattedPlaces = nearestPlaces.map((place) => ({
+  name: place.display_name?.split(",")[0] || "Unknown",
+  address: place.display_name,
+  distance: place.distance
+    ? place.distance.toFixed(2)
+    : "0.00",
+  lat: parseFloat(place.lat),
+  lon: parseFloat(place.lon),
+}));
 
     // if (process.env.TWILIO_SID && process.env.TWILIO_AUTH_TOKEN) {
     //   await sendSMS(phoneNumbers, latitude, longitude);
@@ -702,12 +742,12 @@ exports.triggerEmergency = async (req, res) => {
     //   console.log("⚠️ Twilio not configured, skipping SMS");
     // }
 
-    await sendEmergencyEmail(user, latitude, longitude, places);
+    await sendEmergencyEmail(user, latitude, longitude, formattedPlaces);
 
     res.json({
       message: "🚨 Emergency triggered & alerts sent successfully",
       trip,
-      nearbyPlaces: places,
+      nearbyPlaces: formattedPlaces,
     });
   } catch (err) {
     console.error(err);
@@ -736,10 +776,25 @@ exports.checkTrafficAndSendAlert = async (req, res) => {
       return res.status(404).json({ message: "Trip not found" });
     }
 
-    const start = trip.liveLocation || trip.from;
+    // ✅ FIX START LOCATION
+    const start =
+      trip.liveLocation?.lat && trip.liveLocation?.lng
+        ? trip.liveLocation
+        : trip.from;
+
     const end = trip.to;
 
-    if (!start?.lat || !start?.lng || !end?.lat || !end?.lng) {
+    // ✅ VALIDATION
+    if (
+      !start?.lat ||
+      !start?.lng ||
+      !end?.lat ||
+      !end?.lng ||
+      isNaN(start.lat) ||
+      isNaN(start.lng) ||
+      isNaN(end.lat) ||
+      isNaN(end.lng)
+    ) {
       return res.status(400).json({ message: "Invalid coordinates" });
     }
 
@@ -749,49 +804,94 @@ exports.checkTrafficAndSendAlert = async (req, res) => {
       return res.json({ message: "No traffic data available" });
     }
 
-    // ✅ FIXED ALERT LOGIC
-    let alert = "Smooth";
+    // ✅ SINGLE SOURCE OF TRUTH
+    const { status: trafficStatus, color: trafficColor } =
+      getTrafficStatus(traffic);
 
-    if (traffic.congestion?.some((c) => c === "heavy")) {
-      alert = "Heavy Traffic 🚨";
-    } else if (traffic.congestion?.some((c) => c === "moderate")) {
-      alert = "Moderate Traffic ⚠️";
-    } else if (traffic.congestion?.length > 0) {
-      alert = "Light Traffic 🟢";
+    const user = trip.traveler?.email;
+
+    // ❗ SAFETY CHECK
+    if (!user) {
+      return res.json({ message: "User email not found" });
     }
 
-    // console.log("Traffic Raw Data:", traffic);
+    // ❗ SEND ONLY FOR IMPORTANT ALERTS
+    if (
+      (trafficStatus.includes("Heavy") ||
+        trafficStatus.includes("Moderate")) &&
+      trip.lastTrafficAlert !== trafficStatus
+    ) {
+      const trafficIcons = {
+        heavy:
+          "https://res.cloudinary.com/daw1ro6q2/image/upload/v1775469110/Heavy_traffic_icon_vakvzb.png",
+        moderate:
+          "https://res.cloudinary.com/daw1ro6q2/image/upload/v1775469097/Moderate_traffic_icon_xiyigl.png",
+        light:
+          "https://res.cloudinary.com/daw1ro6q2/image/upload/v1775469074/Light_traffic_icon_njmqo5.png",
+      };
 
-    // ✅ SEND EMAIL ONLY IF HEAVY
-    if (alert === "Heavy Traffic 🚨") {
-      // const user = await User.findById(trip.userId);
-      const user = trip.traveler?.email;
+      let trafficKey = "light";
+      if (trafficStatus.includes("Heavy")) trafficKey = "heavy";
+      else if (trafficStatus.includes("Moderate")) trafficKey = "moderate";
 
-      if (user && trip.lastTrafficAlert !== alert) {
-        await sendEmail(
-          user.email,
-          "🚨 Traffic Alert on Your Route",
-          `
-          <div style="font-family: Arial; padding: 20px;">
-            <h2>🚗 Traffic Alert</h2>
-            <p><strong>Route:</strong> ${trip.from.name} → ${trip.to.name}</p>
-            <p><strong>Status:</strong> ${alert}</p>
-            <p><strong>Distance:</strong> ${(traffic.distance / 1000).toFixed(2)} km</p>
-            <p><strong>Estimated Time:</strong> ${(traffic.duration / 60).toFixed(1)} mins</p>
-            <p style="color:red;">⚠ Please consider alternate routes</p>
-          </div>
-          `,
-        );
+      const iconUrl = trafficIcons[trafficKey];
 
-        trip.lastTrafficAlert = alert;
-        await trip.save();
+      // await sendEmail(
+      //   user,
+      //   "🚨 Smart Travel Alert Update",
+      //   `
+      //   <div style="font-family:Segoe UI,Arial; background:#f4f6f9; padding:20px;">
+      //     <div style="max-width:600px; margin:auto; background:#fff; border-radius:12px;">
+            
+      //       <!-- HEADER -->
+      //       <div style="background:#4facfe; color:white; padding:20px; text-align:center;">
+      //         <h2>🚨 Live Traffic Alert</h2>
+      //       </div>
 
-        console.log("✅ Traffic alert email sent!");
-      }
+      //       <!-- ROUTE -->
+      //       <div style="padding:20px;">
+      //         <p><strong>📍 Route:</strong> ${trip.from.name} → ${trip.to.name}</p>
+      //         <p>${new Date().toLocaleString()}</p>
+      //       </div>
+
+      //       <!-- ALERT CARD -->
+      //       <div style="padding:20px;">
+      //         <div style="background:#fff8e6; padding:20px; border-radius:12px; display:flex; align-items:center;">
+                
+      //           <div style="margin-right:15px;">
+      //             <img src="${iconUrl}" style="width:80px;height:80px;" />
+      //           </div>
+
+      //           <div>
+      //             <h3 style="margin:0; color:${trafficColor};">🚗 Traffic Update</h3>
+      //             <p><strong>Status:</strong> ${trafficStatus}</p>
+      //             <p><strong>Distance:</strong> ${(traffic.distance / 1000).toFixed(1)} km</p>
+      //             <p><strong>Time:</strong> ${(traffic.duration / 60).toFixed(1)} mins</p>
+      //           </div>
+
+      //         </div>
+      //       </div>
+
+      //       <!-- TIPS -->
+      //       <div style="padding:20px;">
+      //         <h3>💡 Tips</h3>
+      //         <ul>
+      //           <li>Check alternate routes 🚦</li>
+      //           <li>Drive safely 🚗</li>
+      //         </ul>
+      //       </div>
+
+      //     </div>
+      //   </div>
+      //   `
+      // );
+
+      trip.lastTrafficAlert = trafficStatus;
+      await trip.save();
     }
 
     return res.json({
-      alert,
+      alert: trafficStatus,
       distance: (traffic.distance / 1000).toFixed(2),
       duration: (traffic.duration / 60).toFixed(1),
     });

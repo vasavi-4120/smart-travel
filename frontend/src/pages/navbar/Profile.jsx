@@ -176,6 +176,24 @@ function Profile() {
     }
   };
 
+  const deleteTrip = async (tripId) => {
+    const confirmDelete = window.confirm(
+      "Are you sure you want to delete this trip?",
+    );
+    if (!confirmDelete) return;
+
+    try {
+      await axios.delete(
+        `http://localhost:8000/api/trips/delete-trip/${tripId}`,
+        { withCredentials: true },
+      );
+
+      setTrips((prev) => prev.filter((t) => t.tripId !== tripId));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   if (loading) return <p className="text-center mt-10">Loading...</p>;
 
   return (
@@ -236,7 +254,9 @@ function Profile() {
           Trip History
         </h2>
         {!userData ? (
-          <Alert severity="warning">Please login to view your trips</Alert>
+          <Alert severity="warning">
+            Please sign up or login to view your trips
+          </Alert>
         ) : trips.length === 0 ? (
           <Alert severity="info">No trips registered</Alert>
         ) : (
@@ -249,6 +269,7 @@ function Profile() {
                   <TableCell>Start</TableCell>
                   <TableCell>End</TableCell>
                   <TableCell>Status</TableCell>
+                  <TableCell>Action</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -270,6 +291,19 @@ function Profile() {
                         size="small"
                         color={getStatusChipColor(trip.status)}
                       />
+                    </TableCell>
+                    <TableCell>
+                      <button
+                        disabled={trip.status === "Active"}
+                        onClick={() => deleteTrip(trip.tripId)}
+                        className={`px-3 py-1 rounded text-white ${
+                          trip.status === "Active"
+                            ? "bg-gray-400 cursor-not-allowed"
+                            : "bg-red-500 hover:bg-red-600"
+                        }`}
+                      >
+                        Delete
+                      </button>
                     </TableCell>
                   </TableRow>
                 ))}

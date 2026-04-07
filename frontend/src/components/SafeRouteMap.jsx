@@ -47,17 +47,26 @@ const SafeRouteMap = () => {
   const drawRoute = async (data) => {
     if (!map.current || !map.current.isStyleLoaded() || !data) return;
 
-    if (
-    !data.start ||
-    !data.end ||
-    isNaN(data.start.lng) ||
-    isNaN(data.start.lat) ||
-    isNaN(data.end.lng) ||
-    isNaN(data.end.lat)
-  ) {
-    console.log("❌ Invalid coordinates:", data);
-    return;
-  }
+  //   if (
+  //   !data.start ||
+  //   !data.end ||
+  //   isNaN(data.start.lng) ||
+  //   isNaN(data.start.lat) ||
+  //   isNaN(data.end.lng) ||
+  //   isNaN(data.end.lat)
+  // ) {
+  //   console.log("❌ Invalid coordinates:", data);
+  //   return;
+  // }
+  if (
+  !data?.start?.lat ||
+  !data?.start?.lng ||
+  !data?.end?.lat ||
+  !data?.end?.lng
+) {
+  console.log("❌ Invalid coordinates:", data);
+  return;
+}
 
     const start = [data.start.lng, data.start.lat];
     const end = [data.end.lng, data.end.lat];
@@ -230,109 +239,10 @@ const SafeRouteMap = () => {
 
   const markers = useRef([]);
 
-// if (!map.current || !map.current.isStyleLoaded()) return;
-
-// const showSOSOnMap = (lat, lng, places) => {
-//   if (!map.current || !map.current.isStyleLoaded()) return;
-
-//   markers.current.forEach(m => m.remove());
-//   markers.current = [];
-
-//   if (!userMarker.current) {
-//     userMarker.current = new mapboxgl.Marker({ color: "blue" })
-//       .setLngLat([lng, lat])
-//       .addTo(map.current);
-//   } else {
-//     userMarker.current.setLngLat([lng, lat]);
-//   }
-
-//   places.forEach(place => {
-//     const marker = new mapboxgl.Marker({ color: "red" })
-//       .setLngLat(place.center)
-//       .addTo(map.current);
-
-//     markers.current.push(marker);
-//   });
-
-//   map.current.flyTo({
-//     center: [lng, lat],
-//     zoom: 13,
-//   });
-// };
-
-
   // =========================
   // INIT MAP
   // =========================
-// useEffect(() => {
-//   if (map.current || !mapContainer.current) return;
 
-//   map.current = new mapboxgl.Map({
-//     container: mapContainer.current,
-//     style: "mapbox://styles/mapbox/streets-v11",
-//     center: DEFAULT_LOCATION,
-//     zoom: 7,
-//   });
-
-//   let interval;
-
-//  map.current.on("load", () => {
-//   console.log("✅ Map Loaded");
-
-//   // ✅ SOS function
-//   window.showSOSOnMap = (lat, lng, places) => {
-//     if (!map.current || !map.current.isStyleLoaded()) return;
-
-//     markers.current.forEach(m => m.remove());
-//     markers.current = [];
-
-//     if (!userMarker.current) {
-//       userMarker.current = new mapboxgl.Marker({ color: "blue" })
-//         .setLngLat([lng, lat])
-//         .addTo(map.current);
-//     } else {
-//       userMarker.current.setLngLat([lng, lat]);
-//     }
-
-//     places.forEach(place => {
-//       const marker = new mapboxgl.Marker({ color: "red" })
-//         .setLngLat(place.center)
-//         .addTo(map.current);
-
-//       markers.current.push(marker);
-//     });
-
-//     map.current.flyTo({
-//       center: [lng, lat],
-//       zoom: 13,
-//     });
-//   };
-
-//   // ✅ ADD THIS BACK
-//   const refreshTripData = async () => {
-//     const data = await getTripData();
-//     if (!data) {
-//       handleNoTrip();
-//       return;
-//     }
-//     updateLocation(data);
-//     drawRoute(data);
-//     await getTrafficAlert(data.tripId);
-//   };
-
-//   refreshTripData();
-//   interval = setInterval(refreshTripData, 5000);
-// });
-
-//   return () => {
-//     if (interval) clearInterval(interval);
-//     if (map.current) {
-//       map.current.remove();
-//       map.current = null;
-//     }
-//     delete window.showSOSOnMap; 
-//   };
-// }, []);
 useEffect(() => {
   if (map.current || !mapContainer.current) return;
 
@@ -375,6 +285,91 @@ useEffect(() => {
       handleNoTrip();
     }
   });
+
+  // =========================
+// ✅ SHOW SOS PLACES ON MAP
+// =========================
+window.showSOSOnMap = (lat, lng, places) => {
+  if (!map.current || !map.current.isStyleLoaded()) return;
+
+  console.log("📍 Showing SOS places:", places);
+
+  // ❌ Remove old markers
+  markers.current.forEach((m) => m.remove());
+  markers.current = [];
+
+  // 🔵 User marker
+  if (!userMarker.current) {
+    userMarker.current = new mapboxgl.Marker({ color: "blue" })
+      .setLngLat([lng, lat])
+      .setPopup(new mapboxgl.Popup().setText("You are here"))
+      .addTo(map.current);
+  } else {
+    userMarker.current.setLngLat([lng, lat]);
+  }
+
+  // 🏥 Nearby places markers (OSM FIX)
+  // places.forEach((place, index) => {
+  //   const marker = new mapboxgl.Marker({
+  //     color:
+  //       index === 0
+  //         ? "green" // nearest
+  //         : place.name?.toLowerCase().includes("police")
+  //         ? "black"
+  //         : "red",
+  //   })
+  //     .setLngLat([place.lon, place.lat]) // ✅ IMPORTANT
+  //     .setPopup(
+  //       new mapboxgl.Popup().setHTML(
+  //         `<b>${place.name}</b><br/>${place.distance} km`
+  //       )
+  //     )
+  //     .addTo(map.current);
+
+  //   markers.current.push(marker);
+  // });
+
+  places.forEach((place, index) => {
+  const isPolice = place.name?.toLowerCase().includes("police");
+
+  // 🔥 Create custom HTML element
+  const el = document.createElement("div");
+  el.style.fontSize = "24px";
+  el.style.cursor = "pointer";
+
+  // 🎯 Set icon
+  if (index === 0) {
+    el.innerHTML = "🟢"; // nearest
+  } else if (isPolice) {
+    el.innerHTML = "🚓"; // police
+  } else {
+    el.innerHTML = "🏥"; // hospital
+  }
+
+  const marker = new mapboxgl.Marker(el)
+    .setLngLat([place.lon, place.lat])
+    .setPopup(
+      new mapboxgl.Popup().setHTML(
+        `<b>${place.name}</b><br/>
+         ${isPolice ? "🚓 Police Station" : "🏥 Hospital"}<br/>
+         📍 ${place.distance} km`
+      )
+    )
+    .addTo(map.current);
+
+  markers.current.push(marker);
+});
+
+  // 🔥 Auto zoom to fit all
+  const bounds = new mapboxgl.LngLatBounds();
+  bounds.extend([lng, lat]);
+
+  places.forEach((p) => {
+    bounds.extend([p.lon, p.lat]);
+  });
+
+  map.current.fitBounds(bounds, { padding: 50 });
+};
 
   return () => {
     if (interval) clearInterval(interval);

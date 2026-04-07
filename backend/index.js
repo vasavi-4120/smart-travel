@@ -40,6 +40,7 @@ app.use(cookieParser());
 app.use("/api/auth", authRoute);
 
 app.use(express.static(path.join(__dirname, "public")));
+// app.use('/static', express.static(path.join(__dirname, 'public')));
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 

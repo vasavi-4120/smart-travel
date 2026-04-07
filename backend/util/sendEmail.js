@@ -26,9 +26,20 @@ const sendEmergencyEmail = async (emails, lat, lng, places) => {
   try {
     const locationLink = `https://www.google.com/maps?q=${lat},${lng}`;
 
+    // const placeList = places.map(p => `
+    //   <li>${p.text} - ${p.place_name}</li>
+    // `).join("");
+
     const placeList = places.map(p => `
-      <li>${p.text} - ${p.place_name}</li>
-    `).join("");
+  <li>
+    <b>${p.name}</b><br/>
+    ${p.address}<br/>
+    📍 Distance: ${p.distance} km<br/>
+    <a href="https://www.google.com/maps?q=${p.address}" target="_blank">
+      View Location
+    </a>
+  </li>
+`).join("");
 
     const htmlContent = `
       <h2>🚨 Emergency Alert - Tourist Safety System</h2>

@@ -7,6 +7,7 @@ const {
   getTripById,
   trackLocation,
   cancelTrip,
+  deleteTrip,
   geocodeLocation,
   updateLocation,
   getActiveTrip,
@@ -29,6 +30,7 @@ router.post("/alert", userVerification, checkTrafficAndSendAlert);
 // ✅ UPDATE ROUTES
 // ===============================
 router.put("/cancel-trip/:tripId", userVerification, cancelTrip);
+router.delete("/delete-trip/:tripId", userVerification, deleteTrip);
 router.put("/trigger-emergency/:tripId", userVerification, triggerEmergency);
 
 // ===============================

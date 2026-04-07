@@ -53,4 +53,41 @@ const getTrafficData = async (start, end) => {
   }
 };
 
-module.exports = { getTrafficData };
+const getTrafficStatus = (trafficData) => {
+  const congestionArray = trafficData?.congestion || [];
+
+  // ✅ remove unknown values
+  const valid = congestionArray.filter((c) => c && c !== "unknown");
+
+  // ✅ handle empty safely
+  if (valid.length === 0) {
+    return {
+      status: "No Traffic Data ⚪",
+      color: "#95a5a6",
+    };
+  }
+
+  const total = valid.length;
+
+  const heavyCount = valid.filter((c) => c === "heavy").length;
+  const moderateCount = valid.filter((c) => c === "moderate").length;
+
+  const heavyRatio = heavyCount / total;
+  const moderateRatio = moderateCount / total;
+
+  let status = "Light Traffic 🟢";
+  let color = "#27ae60";
+
+  // ✅ FINAL DECISION LOGIC
+  if (heavyRatio > 0.3) {
+    status = "Heavy Traffic 🚨";
+    color = "#e74c3c";
+  } else if (moderateRatio > 0.3) {
+    status = "Moderate Traffic ⚠️";
+    color = "#f39c12";
+  }
+
+  return { status, color };
+};
+
+module.exports = { getTrafficData,getTrafficStatus };

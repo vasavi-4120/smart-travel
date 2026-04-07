@@ -184,25 +184,6 @@ const Dashboard = () => {
     "Keep valuables secure",
   ];
 
-  // useEffect(() => {
-  //   axios
-  //     .get("http://localhost:8000/api/trips/myTrip", {
-  //       withCredentials: true,
-  //     })
-  //     .then((res) => {
-  //       if (res.data && res.data.length > 0) {
-  //         setTrips(res.data);
-
-  //         const active = res.data.find((trip) => trip.status === "Active");
-
-  //         if (active) {
-  //           setActiveTrip(active);
-  //         }
-  //       }
-  //     })
-  //     .catch((err) => console.log(err));
-  // }, []);
-
   useEffect(() => {
   if (!userData) return;
 
@@ -368,10 +349,10 @@ const Dashboard = () => {
     fetchRoute();
   }, [liveLocation, destination]);
 
-  const cancelTrip = async (trips) => {
+  const cancelTrip = async (trip) => {
     try {
       await axios.put(
-        `http://localhost:8000/api/trips/cancel-trip/${trips[0].tripId}`,
+        `http://localhost:8000/api/trips/cancel-trip/${trip.tripId}`,
         { reason: "User cancelled manually" },
         { withCredentials: true },
       );
@@ -381,7 +362,7 @@ const Dashboard = () => {
       // ✅ Update trips instantly without waiting for API refresh
       setTrips((prevTrips) =>
         prevTrips.map((t) =>
-          t.tripId === trips.tripId
+          t.tripId === trip.tripId
             ? {
                 ...t,
                 status: "Cancelled",

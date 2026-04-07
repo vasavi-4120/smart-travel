@@ -2,7 +2,6 @@ const { getWeatherData } = require("./weatherService");
 const { getTrafficData } = require("./trafficService");
 const User = require("../model/UserModel");
 const { sendEmail } = require("../util/sendEmail");
-const backendBase = "http://localhost:8000";
 
 // const heavy = require("../public/heavy.png");
 // const moderate = require("../public/moderate.png");
@@ -13,6 +12,7 @@ const checkAlerts = async (trip) => {
   try {
     const start = trip.liveLocation || trip.from;
     const end = trip.to;
+    const backendBase = process.env.BASE_URL || "http://localhost:8000";
 
     if (!start?.lat || !start?.lng || !end?.lat || !end?.lng) {
       console.log("❌ Missing coordinates");
@@ -33,44 +33,7 @@ const checkAlerts = async (trip) => {
     // ======================
     // 🌦 WEATHER ALERT (FIXED)
     // ======================
-    // if (weatherData) {
-    //   const weatherCondition =
-    //     weatherData.weather?.[0]?.description || "Unknown";
-
-    //   // ✅ convert Kelvin → Celsius
-    //   const temperature = weatherData.main?.temp
-    //     ? (weatherData.main.temp - 273.15).toFixed(1)
-    //     : "N/A";
-
-    //   const feelsLike = weatherData.main?.feels_like
-    //     ? (weatherData.main.feels_like - 273.15).toFixed(1)
-    //     : "N/A";
-
-    //   const humidity = weatherData.main?.humidity || "N/A";
-    //   const windSpeed = weatherData.wind?.speed || "N/A";
-
-    //   const icon = weatherData.weather?.[0]?.icon;
-    //   const iconUrl = icon
-    //     ? `http://openweathermap.org/img/wn/${icon}@2x.png`
-    //     : "";
-
-    //   if (trip.lastWeatherCondition !== weatherCondition) {
-    //     alerts.push(`
-    //       <div style="background:#eef6ff; padding:15px; border-radius:10px;">
-    //         <h3>🌦 Weather Update</h3>
-    //         <p><img src="${iconUrl}" /></p>
-    //         <p><strong>Condition:</strong> ${weatherCondition}</p>
-    //         <p><strong>Temperature:</strong> ${temperature}°C</p>
-    //         <p><strong>Feels Like:</strong> ${feelsLike}°C</p>
-    //         <p><strong>Humidity:</strong> ${humidity}%</p>
-    //         <p><strong>Wind:</strong> ${windSpeed} m/s</p>
-    //       </div>
-    //     `);
-
-    //     trip.lastWeatherCondition = weatherCondition;
-    //   }
-    // }
-
+    
     if (weatherData) {
       const weatherCondition =
         weatherData.weather?.[0]?.description || "Unknown";
@@ -165,17 +128,19 @@ const checkAlerts = async (trip) => {
 
   // ✅ ICON MAP
   const trafficIcons = {
-    heavy: "${backendBase}/heavy.png",
-    moderate: "${backendBase}/moderate.png",
-    light: "${backendBase}/light.png",
+    heavy: "https://res.cloudinary.com/daw1ro6q2/image/upload/v1775469110/Heavy_traffic_icon_vakvzb.png",
+    moderate: "https://res.cloudinary.com/daw1ro6q2/image/upload/v1775469097/Moderate_traffic_icon_xiyigl.png",
+    light: "https://res.cloudinary.com/daw1ro6q2/image/upload/v1775469074/Light_traffic_icon_njmqo5.png",
   };
+
+// console.log("Serving images from:", backendBase);
 
   // ✅ FIX KEY
   let trafficKey = "light";
   if (trafficStatus.includes("Heavy")) trafficKey = "heavy";
   else if (trafficStatus.includes("Moderate")) trafficKey = "moderate";
 
-  const iconUrl = trafficIcons[trafficKey] || "${backendBase}/defaulttraffic.png";
+  const iconUrl = trafficIcons[trafficKey] || "https://res.cloudinary.com/daw1ro6q2/image/upload/v1775469122/defaulttraffic_ixzuxz.png";
 
   // ✅ ALERT
   if (trip.lastTrafficAlert !== trafficStatus) {

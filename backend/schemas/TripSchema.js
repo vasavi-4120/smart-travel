@@ -67,6 +67,13 @@ const ContactDetailsSchema = new mongoose.Schema(
       match: [MOBILE_REGEX, "Emergency contact must be 10 digits."],
       required: true,
     },
+    emergencyemail1: {
+      type: String,
+      lowercase: true,
+      trim: true,
+      required: true,
+      match: [EMAIL_REGEX, "Invalid email format."],
+    },
     friend2: {
       type: String,
       trim: true,
@@ -75,6 +82,12 @@ const ContactDetailsSchema = new mongoose.Schema(
     emergencyContact2: {
       type: String,
       match: [MOBILE_REGEX, "Emergency contact must be 10 digits."],
+    },
+    emergencyemail2: {
+      type: String,
+      lowercase: true,
+      trim: true,
+      match: [EMAIL_REGEX, "Invalid email format."],
     },
     relationship: {
       type: String,
@@ -98,6 +111,13 @@ const ContactDetailsSchema = new mongoose.Schema(
     relationshipContact: {
       type: String,
       match: [MOBILE_REGEX, "Emergency contact must be 10 digits."],
+    },
+    relationshipemail: {
+      type: String,
+      lowercase: true,
+      trim: true,
+      required: true,
+      match: [EMAIL_REGEX, "Invalid email format."],
     },
   },
   { _id: false },
