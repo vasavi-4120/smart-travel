@@ -4,6 +4,7 @@ import './index.css'
 import App from './App.jsx'
 import {BrowserRouter} from "react-router-dom"
 import UserContext from './context/UserContext.jsx'
+import "mapbox-gl/dist/mapbox-gl.css";
 
 createRoot(document.getElementById('root')).render(
   <BrowserRouter>

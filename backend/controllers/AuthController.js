@@ -71,11 +71,15 @@ module.exports.Signup = async (req, res) => {
     // }
 
     const token = createSecretToken(user._id);
+    const isProduction = process.env.NODE_ENV === "production";
 
     res.cookie("token", token, {
       httpOnly: true,
-      sameSite: "lax",
-      secure: false,
+      // sameSite: "lax",
+      // secure: false,
+      sameSite: isProduction ? "none" : "lax",
+  secure: isProduction,
+      path: "/",
     });
 
     res.status(201).json({
@@ -141,11 +145,15 @@ module.exports.Login = async (req, res) => {
     );
 
     const token = createSecretToken(user._id);
+    const isProduction = process.env.NODE_ENV === "production";
 
     res.cookie("token", token, {
       httpOnly: true,
-      sameSite: "lax",
-      secure: false,
+      // sameSite: "lax",
+      // secure: false,
+      sameSite: isProduction ? "none" : "lax",
+  secure: isProduction,
+      path: "/",
     });
 
     res.status(200).json({
@@ -250,21 +258,41 @@ module.exports.VerifyEmail = async (req, res) => {
   }
 };
 
+// module.exports.GetCurrentUser = async (req, res) => {
+//   const token = req.cookies.token; 
+//   if (!token) {
+//     return res.status(401).json({ user: null }); // This is what you're seeing
+//   }
+
+//   try {
+//     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+//     const user = await User.findById(decoded.id).select("-password");
+    
+//     if (!user) return res.status(404).json({ user: null });
+    
+//     // This MUST match what your React context expects (res.data.user)
+//     res.status(200).json({ user }); 
+//   } 
+//   // catch (err) {
+//   //   res.status(200).json({ user: null });
+//   // }
+//   catch (err) {
+//   return res.status(401).json({ user: null });
+// }
+// };
 module.exports.GetCurrentUser = async (req, res) => {
-  const token = req.cookies.token; 
+  const token = req.cookies.token;
+
   if (!token) {
-    return res.status(401).json({ user: null }); // This is what you're seeing
+    return res.status(200).json({ user: null }); // ✅ NOT 401
   }
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(decoded.id).select("-password");
-    
-    if (!user) return res.status(404).json({ user: null });
-    
-    // This MUST match what your React context expects (res.data.user)
-    res.status(200).json({ user }); 
+
+    return res.status(200).json({ user });
   } catch (err) {
-    res.status(200).json({ user: null });
+    return res.status(200).json({ user: null }); // ✅ NOT 401
   }
 };

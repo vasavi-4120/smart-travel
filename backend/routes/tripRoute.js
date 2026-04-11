@@ -12,6 +12,7 @@ const {
   updateLocation,
   getActiveTrip,
   triggerEmergency,
+  EmergencyMap,
   checkTrafficAndSendAlert,
 } = require("../controllers/tripController");
 
@@ -42,5 +43,6 @@ router.get("/geocode", userVerification, geocodeLocation);
 
 // 🔴 ALWAYS KEEP LAST
 router.get("/:tripId", userVerification, getTripById);
+router.get("/sos/:tripId", userVerification, EmergencyMap);
 
 module.exports = router;

@@ -86,24 +86,6 @@ function Profile() {
     return profile;
   }, [userData]);
 
-  // Determine the Image Source
-  // const imageSrc = useMemo(() => {
-  //   if (!userData) return profile;
-  //   if (userData.profileImage instanceof File) {
-  //     return URL.createObjectURL(userData.profileImage);
-  //   }
-  //   return userData.profileImage?.url || profile;
-  // }, [userData]);
-
-  // // Cleanup Object URLs to prevent memory leaks
-  // useEffect(() => {
-  //   return () => {
-  //     if (imageSrc.startsWith("blob:")) {
-  //       URL.revokeObjectURL(imageSrc);
-  //     }
-  //   };
-  // }, [imageSrc]);
-
   const handleLogout = async () => {
     try {
       await axios.post(
@@ -296,10 +278,10 @@ function Profile() {
                       <button
                         disabled={trip.status === "Active"}
                         onClick={() => deleteTrip(trip.tripId)}
-                        className={`px-3 py-1 rounded text-white ${
+                        className={`px-3 py-1 rounded-2xl text-white ${
                           trip.status === "Active"
                             ? "bg-gray-400 cursor-not-allowed"
-                            : "bg-red-500 hover:bg-red-600"
+                            : "bg-purple-700 hover:bg-pink-600"
                         }`}
                       >
                         Delete

@@ -30,6 +30,7 @@ router.put(
 );
 router.get("/getProfile", userVerification,requireAuth, getProfile);
 router.get("/verify/:token", VerifyEmail);
-router.get("/me", userVerification,requireAuth, GetCurrentUser);
+router.get("/me", GetCurrentUser);
+// router.get("/me", userVerification,requireAuth, GetCurrentUser);
 
 module.exports = router;

@@ -1,5 +1,6 @@
 // src/components/Dashboard.js
 import React, { useState, useEffect, useRef } from "react";
+import { io } from "socket.io-client";
 import axios from "axios";
 import {
   Container,
@@ -54,34 +55,35 @@ import {
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import "./Dashboard.css";
-import "leaflet/dist/leaflet.css";
-import {
-  MapContainer,
-  TileLayer,
-  Marker,
-  Polyline,
-  Popup,
-  useMap,
-  Circle,
-} from "react-leaflet";
+// import "leaflet/dist/leaflet.css";
+// import {
+//   MapContainer,
+//   TileLayer,
+//   Marker,
+//   Polyline,
+//   Popup,
+//   useMap,
+//   Circle,
+// } from "react-leaflet";
 import SafetyMap from "../../components/SafetyMap";
 import SafeRouteMap from "../../components/SafeRouteMap";
 import { useContext } from "react";
 import { userDataContext } from "../../context/UserContext";
+import socket from "../../socket/socket";
 // import  showSOSOnMap  from "../../components/SafeRouteMap";
 
-import L from "leaflet";
-import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
-import markerIcon from "leaflet/dist/images/marker-icon.png";
-import markerShadow from "leaflet/dist/images/marker-shadow.png";
+// import L from "leaflet";
+// import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
+// import markerIcon from "leaflet/dist/images/marker-icon.png";
+// import markerShadow from "leaflet/dist/images/marker-shadow.png";
 
-delete L.Icon.Default.prototype._getIconUrl;
+// delete L.Icon.Default.prototype._getIconUrl;
 
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: markerIcon2x,
-  iconUrl: markerIcon,
-  shadowUrl: markerShadow,
-});
+// L.Icon.Default.mergeOptions({
+//   iconRetinaUrl: markerIcon2x,
+//   iconUrl: markerIcon,
+//   shadowUrl: markerShadow,
+// });
 
 const Dashboard = () => {
   const [emergencyAlerts, setEmergencyAlerts] = useState([]);
@@ -95,21 +97,26 @@ const Dashboard = () => {
   const [destination, setDestination] = useState(null);
   const [trips, setTrips] = useState([]);
   const { userData } = useContext(userDataContext);
+  const [sosData, setSosData] = useState(null);
+  const [sosPlaces, setSosPlaces] = useState([]);
 
   const [liveLocation, setLiveLocation] = useState(null);
   const [history, setHistory] = useState([]);
+
+  // const socket = useRef(null);
+  const otherUsers = useRef({});
 
   const intervalRef = useRef(null);
 
   const [routeCoords, setRouteCoords] = useState([]);
 
-  const destinationIcon = new L.Icon({
-    iconUrl:
-      "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
-    shadowUrl: markerShadow,
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-  });
+  // const destinationIcon = new L.Icon({
+  //   iconUrl:
+  //     "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
+  //   shadowUrl: markerShadow,
+  //   iconSize: [25, 41],
+  //   iconAnchor: [12, 41],
+  // });
 
   const quickStats = [
     {
@@ -185,26 +192,54 @@ const Dashboard = () => {
   ];
 
   useEffect(() => {
-  if (!userData) return;
+    if (!userData) return;
 
-  axios
-    .get("http://localhost:8000/api/trips/myTrip", {
-      withCredentials: true,
-    })
-    .then((res) => {
-      if (res.data?.length > 0) {
-        setTrips(res.data);
+    const fetchTrip = async () => {
+      try {
+        const res = await axios.get("http://localhost:8000/api/trips/myTrip", {
+          withCredentials: true,
+        });
+        setTrips(res.data); // Keep the table updated
 
-        const active = res.data.find((trip) => trip.status === "Active");
-        if (active) setActiveTrip(active);
+        const sortedTrips = res.data.sort(
+          (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
+        );
+
+        let active = sortedTrips.find((trip) => trip.status === "Active");
+
+        if (!active) {
+          active = sortedTrips.find((trip) => trip.status === "Emergency");
+        }
+
+        if (active) {
+          setActiveTrip(active);
+          setLiveLocation(active.liveLocation);
+          setHistory(active.locationHistory || []);
+          setDestination(active.to);
+          if (active.sosTriggered) {
+            setSosData(active.sosLocation);
+            setSosPlaces(active.sosPlaces || []);
+          }
+        } else {
+          // Only clear if there truly is no active/emergency trip
+          setActiveTrip(null);
+          setLiveLocation(null);
+          setDestination(null);
+          setRouteCoords([]);
+        }
+      } catch (err) {
+        if (err.response?.status !== 401) {
+          console.log(err);
+        }
       }
-    })
-    .catch((err) => {
-      if (err.response?.status !== 401) {
-        console.log(err);
-      }
-    });
-}, [userData]);
+    };
+    fetchTrip();
+    intervalRef.current = setInterval(fetchTrip, 10000);
+
+    return () => {
+      clearInterval(intervalRef.current);
+    };
+  }, [userData]);
 
   const lastSentTimeRef = useRef(0);
 
@@ -235,13 +270,19 @@ const Dashboard = () => {
               },
               { withCredentials: true },
             );
-            console.log("Geolocation triggered");
-
-            console.log("Sending location:", {
+            (socket.emit("LIVE_LOCATION_UPDATE", {
               tripId: activeTrip.tripId,
               lat: position.coords.latitude,
               lng: position.coords.longitude,
-            });
+            }),
+              console.log("Geolocation triggered")
+            );
+
+            // console.log("Sending location:", {
+            //   tripId: activeTrip.tripId,
+            //   lat: position.coords.latitude,
+            //   lng: position.coords.longitude,
+            // });
           } catch (err) {
             console.log("Location error:", err);
           }
@@ -275,79 +316,105 @@ const Dashboard = () => {
   }, []);
 
   useEffect(() => {
-  if (!userData) return; // 🚫 STOP EVERYTHING
+    if (!userData || !activeTrip) return;
 
-  const fetchTrip = async () => {
-    try {
-      const res = await axios.get(
-        "http://localhost:8000/api/trips/myTrip",
-        { withCredentials: true }
+    // ✅ CONNECT socket if not already connected
+    if (!socket.connected) socket.connect();
+
+    // ✅ JOIN ROOM once connected
+    socket.emit("joinTrip", activeTrip.tripId);
+
+    // ===============================
+    // 📍 LIVE LOCATION FROM OTHERS
+    // ===============================
+    // const handleLiveLocation = (data) => {
+    //   otherUsers.current[data.socketId] = { lat: data.lat, lng: data.lng };
+
+    //   setEmergencyAlerts((prev) => [
+    //     ...prev.slice(-4),
+    //     {
+    //       id: Date.now(),
+    //       message: `User moving: ${data.lat}, ${data.lng}`,
+    //       type: "info",
+    //       time: new Date().toLocaleTimeString(),
+    //     },
+    //   ]);
+    // };
+    const handleLiveLocation = (data) => {
+      // ✅ update active trip live location
+      setActiveTrip((prev) =>
+        prev
+          ? {
+              ...prev,
+              liveLocation: { lat: data.lat, lng: data.lng },
+            }
+          : prev,
       );
 
-      const active = res.data.find((trip) => trip.status === "Active");
+      // optional alerts
+      setEmergencyAlerts((prev) => [
+        ...prev.slice(-4),
+        {
+          id: Date.now(),
+          message: `User moving: ${data.lat}, ${data.lng}`,
+          type: "info",
+          time: new Date().toLocaleTimeString(),
+        },
+      ]);
+    };
 
-      if (active) {
-        setLiveLocation(active.liveLocation);
-        setHistory(active.locationHistory || []);
-        setDestination(active.to);
-      } else {
-        setLiveLocation(null);
-        setHistory([]);
-        setDestination(null);
-        setRouteCoords([]);
-      }
-    } catch (err) {
-      if (err.response?.status !== 401) {
-        console.log(err);
-      }
-    }
-  };
+    socket.on("LIVE_LOCATION_UPDATE", handleLiveLocation);
 
-  fetchTrip();
+    // ===============================
+    // 🚨 SOS REAL-TIME ALERT
+    // ===============================
+    const handleSOS = (data) => {
+      console.log("🚨 SOS RECEIVED:", data);
+      setEmergencyAlerts((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          message: `🚨 Emergency by ${data.traveler?.name}`,
+          type: "emergency",
+          time: new Date().toLocaleTimeString(),
+        },
+      ]);
+      alert("🚨 Emergency Alert Received!");
+    };
 
-  intervalRef.current = setInterval(fetchTrip, 10000);
+    socket.on("SOS_TRIGGERED", handleSOS);
 
-  return () => {
-    clearInterval(intervalRef.current);
-  };
-}, [userData]); // ✅ IMPORTANT
+    const handleStatusUpdate = (updatedTrip) => {
+      console.log("🔄 Trip Status Sync:", updatedTrip.status);
 
-  useEffect(() => {
-    const fetchRoute = async () => {
-      if (!liveLocation || !destination) return;
+      setTrips((prev) =>
+        prev.map((t) => (t.tripId === updatedTrip.tripId ? updatedTrip : t)),
+      );
 
-      try {
-        const response = await axios.post(
-          "https://api.openrouteservice.org/v2/directions/driving-car/geojson",
-          {
-            coordinates: [
-              [Number(liveLocation.lng), Number(liveLocation.lat)],
-              [Number(destination.lng), Number(destination.lat)],
-            ],
-          },
-          {
-            headers: {
-              Authorization: import.meta.env.VITE_ORS_API_KEY,
-              "Content-Type": "application/json",
-            },
-          },
-        );
-
-        const coords = response.data.features[0].geometry.coordinates.map(
-          (coord) => [
-            coord[1], // lat
-            coord[0], // lng
-          ],
-        );
-
-        setRouteCoords(coords);
-      } catch (error) {
-        console.error("Route API Error:", error);
+      // If this is the current active trip, or just became active
+      if (
+        updatedTrip.status === "Active" ||
+        updatedTrip.status === "Emergency"
+      ) {
+        setActiveTrip(updatedTrip);
+      } else if (
+        updatedTrip.status === "Completed" ||
+        updatedTrip.status === "Cancelled"
+      ) {
+        if (activeTrip?.tripId === updatedTrip.tripId) {
+          setActiveTrip(null);
+        }
       }
     };
 
-    fetchRoute();
-  }, [liveLocation, destination]);
+    socket.on("TRIP_STATUS_UPDATED", handleStatusUpdate);
+
+    return () => {
+      socket.off("LIVE_LOCATION_UPDATE", handleLiveLocation);
+      socket.off("SOS_TRIGGERED", handleSOS);
+      socket.off("TRIP_STATUS_UPDATED", handleStatusUpdate);
+    };
+  }, [userData, activeTrip]);
 
   const cancelTrip = async (trip) => {
     try {
@@ -374,7 +441,7 @@ const Dashboard = () => {
       );
 
       // ✅ If it was active, reset activeTrip UI
-      if (activeTrip?.tripId === trips.tripId) {
+      if (activeTrip?.tripId === trip.tripId) {
         setActiveTrip(null);
         setLiveLocation(null);
         setHistory([]);
@@ -383,29 +450,6 @@ const Dashboard = () => {
     } catch (error) {
       console.error(error);
     }
-  };
-
-  const FitBounds = ({ history, destination, liveLocation }) => {
-    const map = useMap();
-
-    useEffect(() => {
-      const points = [];
-
-      if (liveLocation?.lat && liveLocation?.lng) {
-        points.push([liveLocation.lat, liveLocation.lng]);
-      }
-
-      if (destination?.lat && destination?.lng) {
-        points.push([destination.lat, destination.lng]);
-      }
-
-      if (points.length > 0) {
-        const bounds = L.latLngBounds(points);
-        map.fitBounds(bounds, { padding: [50, 50] });
-      }
-    }, [history, destination, liveLocation, map]);
-
-    return null;
   };
 
   const handleEmergencySOS = () => {
@@ -434,38 +478,42 @@ const Dashboard = () => {
           const res = await fetch(
             `http://localhost:8000/api/trips/trigger-emergency/${activeTrip.tripId}`,
             {
-              method: "PUT", // ✅ FIXED
-              headers: {
-                "Content-Type": "application/json",
-              },
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
               credentials: "include",
               body: JSON.stringify({ latitude, longitude }),
             },
           );
 
-          const text = await res.text();
+          const result = await res.json(); // ✅ renamed
 
-          let data;
-          try {
-            data = JSON.parse(text);
-          } catch {
-            throw new Error("Invalid server response");
+          if (!res.ok) throw new Error(result.message);
+
+          // ✅ Update trips list
+          if (result.trip) {
+            setTrips((prev) =>
+              prev.map((t) =>
+                t.tripId === result.trip.tripId ? result.trip : t,
+              ),
+            );
+
+            setActiveTrip(result.trip);
           }
 
-          if (!res.ok) throw new Error(data.message);
+          // ✅ Safe places
+          const safePlaces = Array.isArray(result.nearbyPlaces)
+            ? result.nearbyPlaces
+            : [];
+
+          // ✅ Store SOS location (CURRENT GPS)
+          setSosData({
+            lat: latitude,
+            lng: longitude,
+          });
+
+          setSosPlaces(safePlaces);
 
           alert("✅ SOS sent successfully!");
-
-          // if (data.nearbyPlaces) {
-          //   showSOSOnMap(latitude, longitude, data.nearbyPlaces);
-          // }
-          if (data.nearbyPlaces) {
-            if (window.showSOSOnMap) {
-              window.showSOSOnMap(latitude, longitude, data.nearbyPlaces);
-            } else {
-              console.log("⚠️ Map function not ready yet");
-            }
-          }
         } catch (error) {
           console.error(error);
           alert("❌ Failed to send SOS. Try again.");
@@ -475,6 +523,41 @@ const Dashboard = () => {
         alert("❌ Location access denied.");
       },
     );
+  };
+
+  const handleShowSOSPlaces = async (tripId) => {
+    try {
+      const res = await axios.get(
+        `http://localhost:8000/api/trips/sos/${tripId}`,
+        { withCredentials: true },
+      );
+
+      const { sosLocation, sosPlaces } = res.data;
+
+      if (!sosLocation || !Array.isArray(sosPlaces) || sosPlaces.length === 0) {
+        alert("❌ No SOS data available for this trip");
+        return;
+      }
+
+      // ✅ Update state
+      setSosData(sosLocation);
+      setSosPlaces(sosPlaces);
+
+      // ✅ Better: don't overwrite full trip blindly
+      setActiveTrip((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: "Emergency",
+              sosLocation,
+              sosPlaces,
+            }
+          : prev,
+      );
+    } catch (err) {
+      console.error(err);
+      alert("❌ Failed to load SOS data");
+    }
   };
 
   const getPriorityColor = (priority) => {
@@ -491,21 +574,21 @@ const Dashboard = () => {
   };
 
   const getStatusChipColor = (status) => {
-  switch (status) {
-    case "Emergency":
-      return "error";
-    case "Active":
-      return "primary";
-    case "Completed":
-      return "success";
-    case "Pending":
-      return "warning";
-    case "Cancelled":
-      return "default";
-    default:
-      return "default";
-  }
-};
+    switch (status) {
+      case "Emergency":
+        return "error";
+      case "Active":
+        return "primary";
+      case "Completed":
+        return "success";
+      case "Pending":
+        return "warning";
+      case "Cancelled":
+        return "default";
+      default:
+        return "default";
+    }
+  };
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -611,27 +694,108 @@ const Dashboard = () => {
                           }
                         /> */}
                         <Chip
-    label={trip.status}
-    size="small"
-    color={getStatusChipColor(trip.status)}
-  />
+                          label={trip.status}
+                          size="small"
+                          color={getStatusChipColor(trip.status)}
+                        />
                       </TableCell>
                       <TableCell>
-                        <Button
-                          color="error"
-                          className={`
-    btn 
-    ${
-      trip.status === "Active"
-        ? "bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-3 rounded-full shadow-md hover:shadow-lg transition-all duration-300"
-        : "bg-gray-300 text-gray-500 cursor-not-allowed py-1 px-3 rounded-full"
-    }
-  `}
-                          disabled={trip.status !== "Active"}
-                          onClick={() => cancelTrip(trip)}
-                        >
-                          Cancel Trip
-                        </Button>
+                        <Box display="flex" gap={2}>
+                          {/* Cancel Trip Button */}
+                          <Button
+                            variant="contained"
+                            startIcon={<Cancel />}
+                            disabled={trip.status !== "Active"}
+                            onClick={() => cancelTrip(trip)}
+                            sx={{
+                              textTransform: "none",
+                              fontWeight: "bold",
+                              borderRadius: "25px",
+                              px: 2.5,
+                              py: 0.8,
+                              background:
+                                trip.status === "Active"
+                                  ? "linear-gradient(135deg, #7b1fa2, #9c27b0)"
+                                  : "#e0e0e0",
+                              color:
+                                trip.status === "Active" ? "#fff" : "#9e9e9e",
+                              boxShadow:
+                                trip.status === "Active"
+                                  ? "0 4px 10px rgba(156,39,176,0.4)"
+                                  : "none",
+                              transition: "all 0.3s ease",
+                              "&:hover": {
+                                background:
+                                  trip.status === "Active"
+                                    ? "linear-gradient(135deg, #6a1b9a, #8e24aa)"
+                                    : "#e0e0e0",
+                                transform:
+                                  trip.status === "Active"
+                                    ? "scale(1.05)"
+                                    : "none",
+                                boxShadow:
+                                  trip.status === "Active"
+                                    ? "0 6px 14px rgba(156,39,176,0.6)"
+                                    : "none",
+                              },
+                            }}
+                          >
+                            Cancel Trip
+                          </Button>
+
+                          {/* SOS Places Button */}
+                          <Button
+                            variant="contained"
+                            startIcon={<Emergency />}
+                            disabled={
+                              trip.status !== "Active" &&
+                              trip.status !== "Emergency"
+                            }
+                            onClick={() => handleShowSOSPlaces(trip.tripId)}
+                            sx={{
+                              textTransform: "none",
+                              fontWeight: "bold",
+                              borderRadius: "25px",
+                              px: 2.5,
+                              py: 0.8,
+                              background:
+                                trip.status === "Active" ||
+                                trip.status === "Emergency"
+                                  ? "linear-gradient(135deg, #d32f2f, #f44336)"
+                                  : "#e0e0e0",
+                              color:
+                                trip.status === "Active" ||
+                                trip.status === "Emergency"
+                                  ? "#fff"
+                                  : "#9e9e9e",
+                              boxShadow:
+                                trip.status === "Active" ||
+                                trip.status === "Emergency"
+                                  ? "0 4px 10px rgba(244,67,54,0.4)"
+                                  : "none",
+                              transition: "all 0.3s ease",
+                              "&:hover": {
+                                background:
+                                  trip.status === "Active" ||
+                                  trip.status === "Emergency"
+                                    ? "linear-gradient(135deg, #c62828, #e53935)"
+                                    : "#e0e0e0",
+                                transform:
+                                  trip.status === "Active" ||
+                                  trip.status === "Emergency"
+                                    ? "scale(1.05)"
+                                    : "none",
+                                boxShadow:
+                                  trip.status === "Active" ||
+                                  trip.status === "Emergency"
+                                    ? "0 6px 14px rgba(244,67,54,0.6)"
+                                    : "none",
+                              },
+                            }}
+                          >
+                            SOS Places
+                          </Button>
+                        </Box>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -641,7 +805,23 @@ const Dashboard = () => {
           )}
         </CardContent>
       </Card>
-      <SafeRouteMap />
+
+      {userData && activeTrip ? (
+        <SafeRouteMap
+          trip={activeTrip}
+          sosData={sosData}
+          sosPlaces={sosPlaces}
+        />
+      ) : userData ? (
+        <Alert severity="info" sx={{ mx: 8, mt: 2 }}>
+          Loading active trip...
+        </Alert>
+      ) : (
+        <Alert severity="info" sx={{ mx: 8, mt: 2 }}>
+          Please signup or login and register for a trip to view live tracking
+          map 🔐
+        </Alert>
+      )}
 
       <Container maxWidth="xl" sx={{ py: 3 }}>
         {/* Quick Stats */}
@@ -917,3 +1097,35 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
+//  <Button
+//                           color="error"
+//                           className={`
+//     btn
+//     ${
+//       trip.status === "Active"
+//         ? "bg-purple-500 hover:bg-purple-600 text-white font-bold py-1 px-3 rounded-full shadow-md hover:shadow-lg transition-all duration-300"
+//         : "bg-gray-300 text-gray-500 cursor-not-allowed py-1 px-3 rounded-full"
+//     }
+//   `}
+//                           disabled={trip.status !== "Active"}
+//                           onClick={() => cancelTrip(trip)}
+//                         >
+//                           Cancel Trip
+//                         </Button>
+//                         <Button
+//                           color="error"
+//                           className={`btn ${
+//                             // trip.status === "Active" ||
+//                             trip.status === "Emergency"
+//                               ? "bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-3 rounded-full shadow-md"
+//                               : "bg-gray-300 text-gray-500 cursor-not-allowed py-1 px-3 rounded-full"
+//                           }`}
+//                           disabled={
+//                             trip.status !== "Active" &&
+//                             trip.status !== "Emergency"
+//                           }
+//                           onClick={() => handleShowSOSPlaces(trip.tripId)}
+//                         >
+//                           Emergency SOS Places on map
+//                         </Button>

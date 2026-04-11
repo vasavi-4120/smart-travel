@@ -13,6 +13,7 @@ import Signup from './pages/navbar/Signup.jsx'
 import Login from './pages/navbar/Login.jsx'
 import NotFound from './NotFound.jsx'
 import Editprofile from './pages/navbar/Editprofile.jsx'
+import TrackPage from "./components/TrackPage";
 
 function App() {
   // const {userData,setUserData} = useContext(userDataContext)
@@ -30,6 +31,7 @@ function App() {
         <Route path='/editprofile' element={<Editprofile/>} />
         <Route path='/signup' element={<Signup/>} />
         <Route path='/login' element={<Login/>} />
+        <Route path="/track/:tripId" element={<TrackPage />} />
         <Route path="*" element={<NotFound/>} />
       </Routes>
       <Footer/>

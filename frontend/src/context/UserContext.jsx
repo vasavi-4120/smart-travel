@@ -8,21 +8,6 @@ function UserContext({ children }) {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // const handleCurrentUser = async () => {
-  //   try {
-  //     const res = await axios.get(
-  //       `${serverUrl}/api/auth/me`,
-  //       { withCredentials: true }
-  //     );
-
-  //     setUserData(res.data.user);
-  //   } catch (error) {
-  //     setUserData(null);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
   const handleCurrentUser = async () => {
   try {
     const res = await axios.get(

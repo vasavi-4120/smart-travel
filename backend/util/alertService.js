@@ -3,11 +3,6 @@ const { getTrafficData } = require("./trafficService");
 const User = require("../model/UserModel");
 const { sendEmail } = require("../util/sendEmail");
 
-// const heavy = require("../public/heavy.png");
-// const moderate = require("../public/moderate.png");
-// const light = require("../public/light.png");
-// const defaulttraffic = require("../public/defaulttraffic.png");
-
 const checkAlerts = async (trip) => {
   try {
     const start = trip.liveLocation || trip.from;

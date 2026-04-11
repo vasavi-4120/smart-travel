@@ -1,415 +1,611 @@
 // SafeRouteMap.jsx
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useContext } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-import { useContext } from "react";
+import { io } from "socket.io-client";
 import { userDataContext } from "../context/UserContext";
+import socket from "../socket/socket";
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_API_KEY;
 
-const SafeRouteMap = () => {
+const SafeRouteMap = ({ trip, sosData, sosPlaces }) => {
   const mapContainer = useRef(null);
   const map = useRef(null);
+  const socketRef = useRef(null);
+  const intervalRef = useRef(null);
+  const tripRef = useRef(trip);
+
   const userMarker = useRef(null);
+  // const otherUserMarker = useRef(null);
+  // const userMarker = useRef(null);
   const startMarker = useRef(null);
   const endMarker = useRef(null);
+  const markers = useRef([]);
+
   const hasFitted = useRef(false);
   const { userData } = useContext(userDataContext);
 
   const [message, setMessage] = useState("");
+  const [viewMode, setViewMode] = useState("default");
 
-  const DEFAULT_LOCATION = [78.4867, 17.385]; // Hyderabad
-
-  // =========================
-  // FETCH ACTIVE TRIP
-  // =========================
-  const getTripData = async () => {
-    try {
-      const res = await fetch("http://localhost:8000/api/trips/active", {
-        credentials: "include",
-      });
-      if (!res.ok) return null;
-
-      const text = await res.text();
-      if (!text) return null;
-
-      return JSON.parse(text);
-    } catch (err) {
-      console.error("Fetch Error:", err);
-      return null;
-    }
-  };
+  const DEFAULT_LOCATION = [78.4867, 17.385];
 
   // =========================
   // DRAW ROUTE
   // =========================
+
   const drawRoute = async (data) => {
-    if (!map.current || !map.current.isStyleLoaded() || !data) return;
+    if (!map.current || !data) return;
 
-  //   if (
-  //   !data.start ||
-  //   !data.end ||
-  //   isNaN(data.start.lng) ||
-  //   isNaN(data.start.lat) ||
-  //   isNaN(data.end.lng) ||
-  //   isNaN(data.end.lat)
-  // ) {
-  //   console.log("❌ Invalid coordinates:", data);
-  //   return;
-  // }
-  if (
-  !data?.start?.lat ||
-  !data?.start?.lng ||
-  !data?.end?.lat ||
-  !data?.end?.lng
-) {
-  console.log("❌ Invalid coordinates:", data);
-  return;
-}
-
-    const start = [data.start.lng, data.start.lat];
-    const end = [data.end.lng, data.end.lat];
-
-    if (!data?.start || !data?.end) return;
-
-    if (!hasFitted.current) {
-      map.current.fitBounds([start, end], { padding: 100 });
-      hasFitted.current = true;
+    // ✅ WAIT until map is ready
+    if (!map.current.isStyleLoaded()) {
+      await new Promise((resolve) => {
+        map.current.once("load", resolve);
+      });
     }
 
-    // Start marker
+    // const startPoint = data.liveLocation || data.from;
+    const startPoint =
+      data.liveLocation?.lat && data.liveLocation?.lng
+        ? data.liveLocation
+        : data.from;
+    // const startPoint = data.from;
+    const endPoint = data.to || data.end;
+
+    // console.log("🔄 Drawing route with:", { startPoint, endPoint });
+
+    const isValid = (v) => v !== undefined && v !== null && !isNaN(Number(v));
+
+    if (
+      !isValid(startPoint?.lat) ||
+      !isValid(startPoint?.lng) ||
+      !isValid(endPoint?.lat) ||
+      !isValid(endPoint?.lng)
+    ) {
+      console.log("❌ Invalid coords", startPoint, endPoint);
+      return;
+    }
+
+    if (!startPoint || !endPoint) {
+      console.log("❌ Missing start or end", data);
+      return;
+    }
+
+    const start = [Number(startPoint.lng), Number(startPoint.lat)];
+    const end = [Number(endPoint.lng), Number(endPoint.lat)];
+
+    // ✅ markers
     if (!startMarker.current) {
       startMarker.current = new mapboxgl.Marker({ color: "blue" })
         .setLngLat(start)
         .addTo(map.current);
-    } else startMarker.current.setLngLat(start);
+    } else {
+      startMarker.current.setLngLat(start);
+    }
 
-    // End marker
     if (!endMarker.current) {
       endMarker.current = new mapboxgl.Marker({ color: "black" })
         .setLngLat(end)
         .addTo(map.current);
-    } else endMarker.current.setLngLat(end);
+    } else {
+      endMarker.current.setLngLat(end);
+    }
 
-    // Fetch route
+    // ✅ API call
     const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${start[0]},${start[1]};${end[0]},${end[1]}?geometries=geojson&access_token=${mapboxgl.accessToken}`;
+
     const res = await fetch(url);
     const json = await res.json();
+
     if (!json.routes?.length) return;
 
     const route = json.routes[0].geometry;
 
-    // Update route instead of removing
+    if (map.current.getLayer("route")) {
+      map.current.removeLayer("route");
+    }
     if (map.current.getSource("route")) {
-      map.current.getSource("route").setData({ type: "Feature", geometry: route });
-    } else {
-      map.current.addSource("route", {
-        type: "geojson",
-        data: { type: "Feature", geometry: route },
-      });
+      map.current.removeSource("route");
+    }
 
-      map.current.addLayer({
-        id: "route",
-        type: "line",
-        source: "route",
-        paint: {
-          "line-color": "green",
-          "line-width": 5,
-        },
-      });
+    // ALWAYS add again
+    map.current.addSource("route", {
+      type: "geojson",
+      data: {
+        type: "Feature",
+        geometry: route,
+      },
+    });
+
+    map.current.addLayer({
+      id: "route",
+      type: "line",
+      source: "route",
+      paint: {
+        "line-color": "green",
+        "line-width": 5,
+      },
+    });
+
+    // ✅ center map
+    // map.current.flyTo({ center: start, zoom: 14 });
+    if (!hasFitted.current) {
+      map.current.flyTo({ center: start, zoom: 14 });
+      hasFitted.current = true;
     }
   };
 
   // =========================
-  // TRAFFIC ALERT
+  // SEND LOCATION
   // =========================
-  const getTrafficAlert = async (tripId) => {
-    try {
-      const res = await fetch("http://localhost:8000/api/trips/alert", {
+  const updateLocation = (tripId) => {
+    if (!navigator.geolocation) return;
+
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const coords = [pos.coords.longitude, pos.coords.latitude];
+
+      // self marker
+      if (!userMarker.current) {
+        userMarker.current = new mapboxgl.Marker({ color: "orange" })
+          .setLngLat(coords)
+          .addTo(map.current);
+      } else {
+        userMarker.current.setLngLat(coords);
+      }
+
+      // API
+      await fetch("http://localhost:8000/api/trips/location", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tripId }),
+        body: JSON.stringify({
+          tripId,
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        }),
       });
 
-      const data = await res.json();
-      const alertMsg = data.alert || "No alert";
-
-      const trafficColor = alertMsg.includes("Heavy")
-        ? "red"
-        : alertMsg.includes("Moderate")
-        ? "yellow"
-        : "green";
-
-      if (map.current?.getLayer("route")) {
-        map.current.setPaintProperty("route", "line-color", trafficColor);
-      }
-
-      setMessage(alertMsg);
-    } catch (err) {
-      console.error("Traffic error:", err);
-      setMessage("Traffic data unavailable ⚪");
-    }
-  };
-
-  // =========================
-  // UPDATE USER LOCATION
-  // =========================
-  const updateLocation = (data) => {
-    if (!data || !navigator.geolocation) return;
-
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const coords = [pos.coords.longitude, pos.coords.latitude];
-
-        if (!userMarker.current) {
-          userMarker.current = new mapboxgl.Marker({ color: "orange" })
-            .setLngLat(coords)
-            .addTo(map.current);
-        } else {
-          userMarker.current.setLngLat(coords);
-        }
-
-        // Send location to backend
-        await fetch("http://localhost:8000/api/trips/location", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            tripId: data.tripId,
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-          }),
-        });
-      },
-      (err) => {
-        console.error(err);
-        setMessage("Location access denied ❌");
-      }
-    );
-  };
-
-  const moveToUserLocation = () => {
-    if (!map.current || !navigator.geolocation) return;
-
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const coords = [pos.coords.longitude, pos.coords.latitude];
-        map.current.flyTo({ center: coords, zoom: 7, duration: 1000 });
-
-        if (!userMarker.current) {
-          userMarker.current = new mapboxgl.Marker({ color: "orange" })
-            .setLngLat(coords)
-            .addTo(map.current);
-        } else {
-          userMarker.current.setLngLat(coords);
-        }
-      },
-      () => {
-        // fallback to default location
-        map.current.flyTo({ center: DEFAULT_LOCATION, zoom: 10 });
-        setMessage("Location denied ❌ — Showing default location");
-      }
-    );
-  };
-
-  // =========================
-  // HANDLE NO ACTIVE TRIP
-  // =========================
-  const handleNoTrip = () => {
-    setMessage("No active trip 🚫");
-    hasFitted.current = false;
-    moveToUserLocation();
-
-    if (map.current) {
-      ["route"].forEach((id) => {
-        if (map.current.getLayer && map.current.getLayer(id)) map.current.removeLayer(id);
-        if (map.current.getSource && map.current.getSource(id)) map.current.removeSource(id);
+      // SOCKET 🔥
+      socket.emit("liveLocation", {
+        tripId,
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
       });
-    }
+    });
+  };
 
-    [startMarker, endMarker].forEach((m) => {
-      if (m.current) {
-        m.current.remove();
-        m.current = null;
+  const waitForMapLoad = () => {
+    return new Promise((resolve) => {
+      if (map.current?.isStyleLoaded()) {
+        resolve();
+      } else {
+        map.current.once("style.load", resolve);
       }
     });
   };
 
-  const markers = useRef([]);
+  const drawRouteToPlace = async (start, end, id, color) => {
+    try {
+      await waitForMapLoad();
+      if (!map.current) return;
+
+      const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${start[0]},${start[1]};${end[0]},${end[1]}?geometries=geojson&access_token=${mapboxgl.accessToken}`;
+
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (!data.routes?.length) return;
+
+      const route = data.routes[0].geometry;
+
+      await waitForMapLoad();
+
+      // remove old
+      if (map.current.getLayer(id)) {
+        map.current.removeLayer(id);
+      }
+      if (map.current.getSource(id)) {
+        map.current.removeSource(id);
+      }
+
+      map.current.addSource(id, {
+        type: "geojson",
+        data: {
+          type: "Feature",
+          geometry: route,
+        },
+      });
+
+      map.current.addLayer({
+        id,
+        type: "line",
+        source: id,
+        paint: {
+          "line-color": color,
+          "line-width": 5,
+        },
+      });
+    } catch (err) {
+      console.error("Route error:", err);
+    }
+  };
+
+  const clearMap = () => {
+    if (!map.current) return;
+
+    // Clear all custom markers in the markers ref array
+    markers.current.forEach((m) => m.remove());
+    markers.current = [];
+
+    // Clear specific refs
+    if (startMarker.current) startMarker.current.remove();
+    if (endMarker.current) endMarker.current.remove();
+    startMarker.current = null;
+    endMarker.current = null;
+
+    // Clear any existing route layers
+    const layers = ["route", "hospital-route", "police-route"];
+    // layers.forEach((layer) => {
+    //   if (userMarker.current) {
+    //     userMarker.current.remove();
+    //     userMarker.current = null;
+    //   }
+    //   if (map.current.getLayer(layer)) {
+    //     map.current.removeLayer(layer);
+    //   }
+    //   if (map.current.getSource(layer)) {
+    //     map.current.removeSource(layer);
+    //   }
+    // });
+    if (userMarker.current) {
+      userMarker.current.remove();
+      userMarker.current = null;
+    }
+
+    layers.forEach((layer) => {
+      if (map.current.getLayer(layer)) {
+        map.current.removeLayer(layer);
+      }
+      if (map.current.getSource(layer)) {
+        map.current.removeSource(layer);
+      }
+    });
+  };
 
   // =========================
-  // INIT MAP
+  // SHOW SOS
+  // =========================
+  const showSOSOnMap = (lat, lng, places) => {
+    if (!map.current) return;
+
+    // 1. Clear the regular green route if it exists
+    if (map.current.getLayer("route")) map.current.removeLayer("route");
+    if (map.current.getSource("route")) map.current.removeSource("route");
+
+    markers.current.forEach((m) => m.remove());
+    markers.current = [];
+
+    const userCoords = [lng, lat];
+
+    // 👤 User marker
+    if (!userMarker.current) {
+      userMarker.current = new mapboxgl.Marker({ color: "red" })
+        .setLngLat(userCoords)
+        .addTo(map.current);
+    } else {
+      userMarker.current.setLngLat(userCoords);
+    }
+    // console.log("📍 Places received:", places);
+    // 🏥🚓 Mark all places
+    places.forEach((place, index) => {
+      if (!place.lat || !place.lng || place.lng === 0) return;
+      // bounds.extend([place.lng, place.lat]);
+
+      const el = document.createElement("div");
+      el.style.fontSize = "24px";
+
+      if (index === 0)
+        el.innerHTML = "🟢"; // nearest
+      else if (place.name?.toLowerCase().includes("police"))
+        el.innerHTML = "🚓";
+      else el.innerHTML = "🏥";
+
+      const marker = new mapboxgl.Marker(el)
+        .setLngLat([place.lng, place.lat])
+        .addTo(map.current);
+
+      markers.current.push(marker);
+    });
+
+    const nearestHospital = places.find((p) => p.type === "hospital");
+
+    const nearestPolice = places.find((p) => p.type === "police");
+
+    // 🛣️ DRAW ROUTES
+    if (nearestHospital) {
+      drawRouteToPlace(
+        userCoords,
+        [nearestHospital.lng, nearestHospital.lat],
+        "hospital-route",
+        "red",
+      );
+    }
+
+    if (nearestPolice) {
+      drawRouteToPlace(
+        userCoords,
+        [nearestPolice.lng, nearestPolice.lat],
+        "police-route",
+        "blue",
+      );
+    }
+
+    // 🔍 Fit bounds
+    const bounds = new mapboxgl.LngLatBounds();
+    bounds.extend(userCoords);
+
+    places.forEach((p) => {
+      if (p.lat && p.lng) {
+        bounds.extend([p.lng, p.lat]);
+      }
+    });
+
+    map.current.fitBounds(bounds, { padding: 50 });
+  };
+
+  // =========================
+  // MAIN EFFECT
   // =========================
 
-useEffect(() => {
-  if (map.current || !mapContainer.current) return;
+  useEffect(() => {
+    // 1. Initialize Map
+    if (!map.current && mapContainer.current) {
+      map.current = new mapboxgl.Map({
+        container: mapContainer.current,
+        style: "mapbox://styles/mapbox/streets-v11",
+        center: DEFAULT_LOCATION,
+        zoom: 12,
+      });
+    }
 
-  map.current = new mapboxgl.Map({
-    container: mapContainer.current,
-    style: "mapbox://styles/mapbox/streets-v11",
-    center: DEFAULT_LOCATION,
-    zoom: 7,
-  });
+    const currentMap = map.current;
+    if (!currentMap) return;
 
-  let interval;
+    const handleLoad = async () => {
+      console.log("✅ Map Loaded");
 
-  map.current.on("load", () => {
-    console.log("✅ Map Loaded");
+      new mapboxgl.Marker({ color: "#a324bf" })
+        .setLngLat(DEFAULT_LOCATION)
+        .setPopup(new mapboxgl.Popup().setHTML("<h4>Default Location</h4>"))
+        .addTo(currentMap);
 
-    const refreshTripData = async () => {
-      // 🚫 STOP if not logged in
+      if (!socket.connected) socket.connect();
+
+      // 🔐 Not logged in
       if (!userData) {
-        handleNoTrip();
+        setMessage("Please login to track your trip 🔐");
+        currentMap.flyTo({ center: DEFAULT_LOCATION, zoom: 9 });
         return;
       }
 
-      const data = await getTripData();
+      // 🚫 No trip
+      if (!trip || trip.status !== "Active") {
+        setMessage("No active trip 🚫");
 
-      if (!data) {
-        handleNoTrip();
+        clearMap(); // ✅ IMPORTANT: remove old routes + markers
+
+        map.current.flyTo({
+          center: DEFAULT_LOCATION,
+          zoom: 9,
+        });
+
+        // optional default marker
+        new mapboxgl.Marker({ color: "#a324bf" })
+          .setLngLat(DEFAULT_LOCATION)
+          .addTo(map.current);
+
         return;
       }
+      // ✅ ALWAYS SHOW ROUTE FIRST (ignore emergency here)
+      setMessage("📍 Live Tracking Active");
 
-      updateLocation(data);
-      drawRoute(data);
-      await getTrafficAlert(data.tripId);
+      await drawRoute(trip);
+
+      if (trip.liveLocation) {
+        const coords = [trip.liveLocation.lng, trip.liveLocation.lat];
+
+        if (!userMarker.current) {
+          userMarker.current = new mapboxgl.Marker({ color: "orange" })
+            .setLngLat(coords)
+            .addTo(map.current);
+        } else {
+          userMarker.current.setLngLat(coords);
+        }
+
+        map.current.flyTo({ center: coords, zoom: 9 });
+      }
+
+      // ✅ Join socket
+      socket.emit("joinTrip", trip.tripId);
+
+      // 🚨 ONLY trigger SOS when event comes
+      socket.on("SOS_TRIGGERED", (data) => {
+        setMessage("🚨 Emergency Active!");
+        showSOSOnMap(data.location.lat, data.location.lng, data.nearbyPlaces);
+      });
     };
 
-    // ✅ only run if logged in
-    if (userData) {
-      refreshTripData();
-      interval = setInterval(refreshTripData, 5000);
+    // Trigger load logic
+    if (currentMap.loaded()) {
+      handleLoad();
     } else {
-      handleNoTrip();
+      currentMap.on("load", handleLoad);
     }
-  });
 
-  // =========================
-// ✅ SHOW SOS PLACES ON MAP
-// =========================
-window.showSOSOnMap = (lat, lng, places) => {
-  if (!map.current || !map.current.isStyleLoaded()) return;
+    return () => {
+      currentMap.off("load", handleLoad);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        // intervalRef.current = null;
+      }
+      // socket.off("LIVE_LOCATION_UPDATE");
+      socket.off("SOS_TRIGGERED");
+    };
+  }, [userData, trip]);
 
-  console.log("📍 Showing SOS places:", places);
+  useEffect(() => {
+    tripRef.current = trip;
+    // console.log("🧠 Trip received in map:", trip);
+  }, [trip]);
 
-  // ❌ Remove old markers
-  markers.current.forEach((m) => m.remove());
-  markers.current = [];
+  useEffect(() => {
+  if (!trip || !map.current || trip.status !== "Active") return;
 
-  // 🔵 User marker
-  if (!userMarker.current) {
-    userMarker.current = new mapboxgl.Marker({ color: "blue" })
-      .setLngLat([lng, lat])
-      .setPopup(new mapboxgl.Popup().setText("You are here"))
-      .addTo(map.current);
-  } else {
-    userMarker.current.setLngLat([lng, lat]);
-  }
-
-  // 🏥 Nearby places markers (OSM FIX)
-  // places.forEach((place, index) => {
-  //   const marker = new mapboxgl.Marker({
-  //     color:
-  //       index === 0
-  //         ? "green" // nearest
-  //         : place.name?.toLowerCase().includes("police")
-  //         ? "black"
-  //         : "red",
-  //   })
-  //     .setLngLat([place.lon, place.lat]) // ✅ IMPORTANT
-  //     .setPopup(
-  //       new mapboxgl.Popup().setHTML(
-  //         `<b>${place.name}</b><br/>${place.distance} km`
-  //       )
-  //     )
-  //     .addTo(map.current);
-
-  //   markers.current.push(marker);
-  // });
-
-  places.forEach((place, index) => {
-  const isPolice = place.name?.toLowerCase().includes("police");
-
-  // 🔥 Create custom HTML element
-  const el = document.createElement("div");
-  el.style.fontSize = "24px";
-  el.style.cursor = "pointer";
-
-  // 🎯 Set icon
-  if (index === 0) {
-    el.innerHTML = "🟢"; // nearest
-  } else if (isPolice) {
-    el.innerHTML = "🚓"; // police
-  } else {
-    el.innerHTML = "🏥"; // hospital
-  }
-
-  const marker = new mapboxgl.Marker(el)
-    .setLngLat([place.lon, place.lat])
-    .setPopup(
-      new mapboxgl.Popup().setHTML(
-        `<b>${place.name}</b><br/>
-         ${isPolice ? "🚓 Police Station" : "🏥 Hospital"}<br/>
-         📍 ${place.distance} km`
-      )
-    )
-    .addTo(map.current);
-
-  markers.current.push(marker);
-});
-
-  // 🔥 Auto zoom to fit all
-  const bounds = new mapboxgl.LngLatBounds();
-  bounds.extend([lng, lat]);
-
-  places.forEach((p) => {
-    bounds.extend([p.lon, p.lat]);
-  });
-
-  map.current.fitBounds(bounds, { padding: 50 });
-};
-
-  return () => {
-    if (interval) clearInterval(interval);
-    if (map.current) {
-      map.current.remove();
-      map.current = null;
+  const run = async () => {
+    if (!map.current.isStyleLoaded()) {
+      await new Promise((resolve) => map.current.once("load", resolve));
     }
-    delete window.showSOSOnMap;
+
+    if (!hasFitted.current) {
+      await drawRoute(trip);
+    }
+
+    if (trip.liveLocation) {
+      const coords = [trip.liveLocation.lng, trip.liveLocation.lat];
+
+      if (!userMarker.current) {
+        userMarker.current = new mapboxgl.Marker({ color: "orange" })
+          .setLngLat(coords)
+          .addTo(map.current);
+      } else {
+        userMarker.current.setLngLat(coords);
+      }
+    }
   };
-}, [userData]); // 👈 IMPORTANT
+
+  run();
+}, [trip]);
+
+  useEffect(() => {
+    
+    const refreshMap = async () => {
+      if (!map.current || !map.current.isStyleLoaded()) return;
+
+      if (!trip || trip.status !== "Active") {
+        clearMap();
+
+        map.current.flyTo({
+          center: DEFAULT_LOCATION,
+          zoom: 9,
+        });
+
+        setMessage("No active trip 🚫");
+        return;
+      }
+
+      clearMap();
+
+      // 🚨 Emergency Mode
+      if (trip.status === "Emergency" && trip.sosPlaces?.length > 0) {
+        const lat = trip.sosLocation?.lat || trip.liveLocation?.lat;
+        const lng = trip.sosLocation?.lng || trip.liveLocation?.lng;
+
+        showSOSOnMap(lat, lng, trip.sosPlaces);
+        setMessage("🚨 Emergency Mode Active");
+        return;
+      }
+
+      // 🎯 VIEW MODE LOGIC
+      if (viewMode === "default") {
+        // ✅ MOVE TO DEFAULT LOCATION
+        map.current.flyTo({
+          center: DEFAULT_LOCATION,
+          zoom: 7,
+        });
+
+        // optional marker
+
+        if (!startMarker.current) {
+          startMarker.current = new mapboxgl.Marker({ color: "#a324bf" })
+            .setLngLat(DEFAULT_LOCATION)
+            .addTo(map.current);
+        }
+
+        setMessage("📍 Default Location View");
+      } else if (viewMode === "emergency") {
+        setMessage("No emergency data available");
+      } else {
+        await drawRoute(trip);
+        setMessage("📍 Standard Route View");
+      }
+    };
+
+    if (map.current?.loaded()) {
+      refreshMap();
+    } else {
+      map.current?.once("style.load", refreshMap);
+    }
+  }, [viewMode]);
+
+  useEffect(() => {
+    if (sosData && sosPlaces.length > 0) {
+      showSOSOnMap(sosData.lat, sosData.lng, sosPlaces);
+    }
+  }, [sosData, sosPlaces]);
 
   return (
     <>
-      <div
-        ref={mapContainer}
-        style={{
-          height: "500px",
-          width: "100%",
-          maxWidth: "900px",
-          margin: "20px auto",
-          borderRadius: "10px",
-        }}
-      />
-      {message && (
+      <div style={{ position: "relative" }}>
         <div
+          ref={mapContainer}
           style={{
-            position: "absolute",
-            top: "10px",
-            left: "10px",
-            background: "white",
-            padding: "10px",
-            borderRadius: "8px",
+            height: "500px",
+            width: "100%",
+            borderRadius: "10px",
+            maxWidth: "900px",
+            margin: "20px auto",
+            minHeight: "400px",
           }}
-        >
-          {message}
-        </div>
-      )}
+        />
+
+        {/* Move buttons here if you want them strictly attached to the map container */}
+        {/* <div className="flex gap-4 justify-center my-4">
+          <button
+            onClick={() => setViewMode("default")}
+            className={`px-4 py-2 rounded ${viewMode === "default" ? "bg-blue-600 text-white" : "bg-gray-200"}`}
+          >
+            📍 Standard View
+          </button>
+
+          <button
+            onClick={() => setViewMode("emergency")}
+            className={`px-4 py-2 rounded ${viewMode === "emergency" ? "bg-red-600 text-white animate-pulse" : "bg-gray-200"}`}
+          >
+            🚨 Emergency Places
+          </button>
+        </div> */}
+
+        {/* message overlay */}
+        {message && (
+          <div
+            style={{
+              position: "absolute",
+              top: "10px",
+              left: "10px",
+              zIndex: 1,
+              background: "white",
+              padding: "10px",
+              borderRadius: "8px",
+              boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+            }}
+          >
+            {message}
+          </div>
+        )}
+      </div>
     </>
   );
 };
 
 export default SafeRouteMap;
-

@@ -1,6 +1,8 @@
 // models/Trip.js
 const mongoose = require("mongoose");
 const { v4: uuidv4 } = require("uuid");
+// const combineDateAndTime = require("../controllers/tripController").combineDateAndTime;
+// const calculateStatus = require("../controllers/tripController").calculateStatus;
 
 const MOBILE_REGEX = /^[0-9]{10}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -224,12 +226,38 @@ const TripSchema = new mongoose.Schema(
         timestamp: { type: Date, default: Date.now },
       },
     ],
+    sosTriggered: { type: Boolean, default: false },
+    sosLocation: {
+      lat: Number,
+      lng: Number,
+    },
+    sosPlaces: [
+      {
+        name: String,
+        address: String,
+        distance: String,
+        lat: Number,
+        lng: Number,
+      },
+    ],
     lastWeatherCondition: {
       type: String,
     },
     lastTrafficAlert: {
       type: String,
       default: "",
+    },
+    lastLocationEmailTime: {
+      type: Date,
+      default: null,
+    },
+    lastSosEmailTime: {
+      type: Date,
+      default: null,
+    },
+    locationShared: {
+      type: Boolean,
+      default: false,
     },
   },
   { timestamps: true },
@@ -257,18 +285,35 @@ function calculateStatus(start, end) {
   return "Completed";
 }
 
-TripSchema.pre("save", async function () {
-  // If status is already Cancelled, don't change it
-  if (this.status === "Cancelled") {
-    return;
-  }
+// TripSchema.pre("save", async function () {
+//   const trip = this;
 
-  if (this.startDate && this.startTime && this.endDate && this.endTime) {
-    const startDateTime = combineDateAndTime(this.startDate, this.startTime);
-    const endDateTime = combineDateAndTime(this.endDate, this.endTime);
+//   // Emergency priority
+//   if (trip.sosTriggered) {
+//     trip.status = "Emergency";
+//     return trip.save();
+//   }
 
-    this.status = calculateStatus(startDateTime, endDateTime);
-  }
-});
+//   // Terminal states
+//   const terminalStates = ["Cancelled", "Completed", "Emergency"];
+//   if (terminalStates.includes(trip.status)) {
+//     return;
+//   }
+
+//   // ✅ Only run when relevant fields change
+//   if (
+//     this.isModified("startDate") ||
+//     this.isModified("endDate") ||
+//     this.isModified("startTime") ||
+//     this.isModified("endTime")
+//   ) {
+//     const startDateTime = combineDateAndTime(trip.startDate, trip.startTime);
+//     const endDateTime = combineDateAndTime(trip.endDate, trip.endTime);
+
+//     if (startDateTime && endDateTime) {
+//       trip.status = calculateStatus(startDateTime, endDateTime);
+//     }
+//   }
+// });
 
 module.exports = { TripSchema };
