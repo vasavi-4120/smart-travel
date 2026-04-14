@@ -1,6 +1,5 @@
 // src/components/Dashboard.js
 import React, { useState, useEffect, useRef } from "react";
-import { io } from "socket.io-client";
 import axios from "axios";
 import {
   Container,
@@ -70,20 +69,6 @@ import SafeRouteMap from "../../components/SafeRouteMap";
 import { useContext } from "react";
 import { userDataContext } from "../../context/UserContext";
 import socket from "../../socket/socket";
-// import  showSOSOnMap  from "../../components/SafeRouteMap";
-
-// import L from "leaflet";
-// import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
-// import markerIcon from "leaflet/dist/images/marker-icon.png";
-// import markerShadow from "leaflet/dist/images/marker-shadow.png";
-
-// delete L.Icon.Default.prototype._getIconUrl;
-
-// L.Icon.Default.mergeOptions({
-//   iconRetinaUrl: markerIcon2x,
-//   iconUrl: markerIcon,
-//   shadowUrl: markerShadow,
-// });
 
 const Dashboard = () => {
   const [emergencyAlerts, setEmergencyAlerts] = useState([]);
@@ -99,6 +84,8 @@ const Dashboard = () => {
   const { userData } = useContext(userDataContext);
   const [sosData, setSosData] = useState(null);
   const [sosPlaces, setSosPlaces] = useState([]);
+  const [showSOSView, setShowSOSView] = useState(false);
+  const [loadingType, setLoadingType] = useState(null);
 
   const [liveLocation, setLiveLocation] = useState(null);
   const [history, setHistory] = useState([]);
@@ -216,16 +203,19 @@ const Dashboard = () => {
           setLiveLocation(active.liveLocation);
           setHistory(active.locationHistory || []);
           setDestination(active.to);
-          if (active.sosTriggered) {
-            setSosData(active.sosLocation);
-            setSosPlaces(active.sosPlaces || []);
-          }
+          // if (active.sosTriggered) {
+          //   setSosData(active.sosLocation);
+          //   setSosPlaces(active.sosPlaces || []);
+          // }
         } else {
           // Only clear if there truly is no active/emergency trip
           setActiveTrip(null);
           setLiveLocation(null);
           setDestination(null);
           setRouteCoords([]);
+
+          setSosData(null);
+          setSosPlaces([]);
         }
       } catch (err) {
         if (err.response?.status !== 401) {
@@ -270,13 +260,12 @@ const Dashboard = () => {
               },
               { withCredentials: true },
             );
-            (socket.emit("LIVE_LOCATION_UPDATE", {
+            socket.emit("LIVE_LOCATION_UPDATE", {
               tripId: activeTrip.tripId,
               lat: position.coords.latitude,
               lng: position.coords.longitude,
-            }),
-              console.log("Geolocation triggered")
-            );
+            });
+            console.log("Geolocation triggered");
 
             // console.log("Sending location:", {
             //   tripId: activeTrip.tripId,
@@ -314,6 +303,10 @@ const Dashboard = () => {
 
     return () => clearInterval(alertInterval);
   }, []);
+
+  useEffect(() => {
+    setShowSOSView(false);
+  }, [activeTrip?.tripId]);
 
   useEffect(() => {
     if (!userData || !activeTrip) return;
@@ -414,7 +407,7 @@ const Dashboard = () => {
       socket.off("SOS_TRIGGERED", handleSOS);
       socket.off("TRIP_STATUS_UPDATED", handleStatusUpdate);
     };
-  }, [userData, activeTrip]);
+  }, [userData, activeTrip?.tripId]);
 
   const cancelTrip = async (trip) => {
     try {
@@ -544,21 +537,92 @@ const Dashboard = () => {
       setSosPlaces(sosPlaces);
 
       // ✅ Better: don't overwrite full trip blindly
-      setActiveTrip((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: "Emergency",
-              sosLocation,
-              sosPlaces,
-            }
-          : prev,
-      );
+      // setActiveTrip((prev) =>
+      //   prev
+      //     ? {
+      //         ...prev,
+      //         status: "Emergency",
+      //         sosLocation,
+      //         sosPlaces,
+      //       }
+      //     : prev,
+      // );
+      setShowSOSView(true);
     } catch (err) {
       console.error(err);
       alert("❌ Failed to load SOS data");
     }
   };
+
+  // const handleSendPlaces = async (type) => {
+  //   try {
+  //     setLoadingType(type);
+
+  //     if (!activeTrip?.liveLocation?.lat || !activeTrip?.liveLocation?.lng) {
+  //       alert("❌ Location not available yet");
+  //       return;
+  //     }
+
+  //     const { lat, lng } = activeTrip.liveLocation;
+
+  //     const res = await axios.post(
+  //       "http://localhost:8000/api/trips/send-preferred-places",
+  //       {
+  //         lat,
+  //         lng,
+  //         type,
+  //         tripId: activeTrip.tripId,
+  //       },
+  //       { withCredentials: true },
+  //     );
+
+  //     //  alert(`✅ ${type} places sent to your email`);
+
+  //     alert(res.data.message);
+  //   } catch (err) {
+  //     console.error(err);
+  //     alert("❌ Failed to send places");
+  //   } finally {
+  //     setLoadingType(null);
+  //   }
+  // };
+
+  const handleSendPlaces = async (type) => {
+  try {
+    setLoadingType(type);
+
+    // ❌ OLD (live location)
+    // if (!activeTrip?.liveLocation?.lat || !activeTrip?.liveLocation?.lng)
+
+    // ✅ NEW (destination)
+    if (!activeTrip?.to?.lat || !activeTrip?.to?.lng) {
+      alert("❌ Destination not available");
+      return;
+    }
+
+    const { lat, lng } = activeTrip.to;
+
+    console.log("📍 Sending destination:", lat, lng);
+
+    const res = await axios.post(
+      "http://localhost:8000/api/trips/send-preferred-places",
+      {
+        lat,
+        lng,
+        type,
+        tripId: activeTrip.tripId,
+      },
+      { withCredentials: true }
+    );
+
+    alert(res.data.message);
+  } catch (err) {
+    console.error(err);
+    alert("❌ Failed to send places");
+  } finally {
+    setLoadingType(null);
+  }
+};
 
   const getPriorityColor = (priority) => {
     switch (priority) {
@@ -744,11 +808,11 @@ const Dashboard = () => {
                           </Button>
 
                           {/* SOS Places Button */}
-                          <Button
+                          {/* <Button
                             variant="contained"
                             startIcon={<Emergency />}
                             disabled={
-                              trip.status !== "Active" &&
+                              // trip.status !== "Active" &&
                               trip.status !== "Emergency"
                             }
                             onClick={() => handleShowSOSPlaces(trip.tripId)}
@@ -794,7 +858,34 @@ const Dashboard = () => {
                             }}
                           >
                             SOS Places
-                          </Button>
+                          </Button> */}
+                          {trip.status === "Emergency" && (
+                            <Button
+                              variant="contained"
+                              startIcon={<Emergency />}
+                              onClick={() => handleShowSOSPlaces(trip.tripId)}
+                              sx={{
+                                textTransform: "none",
+                                fontWeight: "bold",
+                                borderRadius: "25px",
+                                px: 2.5,
+                                py: 0.8,
+                                background:
+                                  "linear-gradient(135deg, #d32f2f, #f44336)",
+                                color: "#fff",
+                                boxShadow: "0 4px 10px rgba(244,67,54,0.4)",
+                                transition: "all 0.3s ease",
+                                "&:hover": {
+                                  background:
+                                    "linear-gradient(135deg, #c62828, #e53935)",
+                                  transform: "scale(1.05)",
+                                  boxShadow: "0 6px 14px rgba(244,67,54,0.6)",
+                                },
+                              }}
+                            >
+                              SOS Places
+                            </Button>
+                          )}
                         </Box>
                       </TableCell>
                     </TableRow>
@@ -806,11 +897,64 @@ const Dashboard = () => {
         </CardContent>
       </Card>
 
+      {activeTrip?.status === "Active" && (
+        <Box sx={{ mx: 8, mt: 2 }}>
+          <Typography variant="h6">Explore Nearby</Typography>
+
+          <Box display="flex" gap={2} mt={1} flexWrap="wrap">
+            <Button
+              variant="contained"
+              disabled={loadingType === "tourist"}
+              onClick={() => handleSendPlaces("tourist")}
+            >
+            {loadingType === "tourist" ? "Sending..." : " 🏰 Tourist Places"}
+            </Button>
+
+            <Button
+              variant="contained"
+              color="info"
+               disabled={loadingType === "museum"}
+              onClick={() => handleSendPlaces("museum")}
+            >
+             {loadingType === "museum" ? "Sending..." : " 🏛 Museums"}
+            </Button>
+
+            <Button
+              variant="contained"
+              color="success"
+              disabled={loadingType === "park"}
+              onClick={() => handleSendPlaces("park")}
+            >
+              {loadingType === "park" ? "Sending..." : "🌳 Parks"}
+            </Button>
+
+            <Button
+              variant="contained"
+              color="warning"
+              disabled={loadingType === "food"}
+              onClick={() => handleSendPlaces("food")}
+            >
+              {loadingType === "food" ? "Sending..." : "🍽 Restaurants"}
+            </Button>
+
+            <Button
+              variant="contained"
+              color="secondary"
+              disabled={loadingType === "hotel"}
+              onClick={() => handleSendPlaces("hotel")}
+            >
+              {loadingType === "hotel" ? "Sending..." : "🏨 Hotels"}
+            </Button>
+          </Box>
+        </Box>
+      )}
+
       {userData && activeTrip ? (
         <SafeRouteMap
           trip={activeTrip}
-          sosData={sosData}
-          sosPlaces={sosPlaces}
+          sosData={showSOSView ? sosData : null}
+          sosPlaces={showSOSView ? sosPlaces : []}
+          triggerSOSView={showSOSView}
         />
       ) : userData ? (
         <Alert severity="info" sx={{ mx: 8, mt: 2 }}>
@@ -1097,35 +1241,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-
-//  <Button
-//                           color="error"
-//                           className={`
-//     btn
-//     ${
-//       trip.status === "Active"
-//         ? "bg-purple-500 hover:bg-purple-600 text-white font-bold py-1 px-3 rounded-full shadow-md hover:shadow-lg transition-all duration-300"
-//         : "bg-gray-300 text-gray-500 cursor-not-allowed py-1 px-3 rounded-full"
-//     }
-//   `}
-//                           disabled={trip.status !== "Active"}
-//                           onClick={() => cancelTrip(trip)}
-//                         >
-//                           Cancel Trip
-//                         </Button>
-//                         <Button
-//                           color="error"
-//                           className={`btn ${
-//                             // trip.status === "Active" ||
-//                             trip.status === "Emergency"
-//                               ? "bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-3 rounded-full shadow-md"
-//                               : "bg-gray-300 text-gray-500 cursor-not-allowed py-1 px-3 rounded-full"
-//                           }`}
-//                           disabled={
-//                             trip.status !== "Active" &&
-//                             trip.status !== "Emergency"
-//                           }
-//                           onClick={() => handleShowSOSPlaces(trip.tripId)}
-//                         >
-//                           Emergency SOS Places on map
-//                         </Button>

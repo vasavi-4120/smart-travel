@@ -14,6 +14,8 @@ const {
   triggerEmergency,
   EmergencyMap,
   checkTrafficAndSendAlert,
+  touristPlaces,
+  sendPreferredPlaces
 } = require("../controllers/tripController");
 
 const { userVerification } = require("../middlewares/AuthMiddleware");
@@ -26,6 +28,7 @@ router.post("/register", userVerification, registerTrip);
 router.post("/trackLocation", userVerification, trackLocation);
 router.post("/location", userVerification, updateLocation);
 router.post("/alert", userVerification, checkTrafficAndSendAlert);
+router.post("/send-preferred-places", userVerification, sendPreferredPlaces);
 
 // ===============================
 // ✅ UPDATE ROUTES
@@ -40,6 +43,7 @@ router.put("/trigger-emergency/:tripId", userVerification, triggerEmergency);
 router.get("/myTrip", userVerification,requireAuth, getUserTrips);
 router.get("/active", userVerification,requireAuth, getActiveTrip);
 router.get("/geocode", userVerification, geocodeLocation);
+router.get("/places", userVerification, touristPlaces);
 
 // 🔴 ALWAYS KEEP LAST
 router.get("/:tripId", userVerification, getTripById);

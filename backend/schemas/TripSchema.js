@@ -240,6 +240,16 @@ const TripSchema = new mongoose.Schema(
         lng: Number,
       },
     ],
+    sharedPlaces: { type: Boolean, default: false },
+    touristPlaces: [
+      {
+        name: String,
+        address: String,
+        distance: String,
+        lat: Number,
+        lng: Number,
+      },
+    ],
     lastWeatherCondition: {
       type: String,
     },

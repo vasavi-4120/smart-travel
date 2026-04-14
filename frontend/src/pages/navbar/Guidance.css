@@ -1,11 +1,18 @@
 .guidance-container {
-  padding-top: 100px;
-  padding-bottom: 50px;
-  padding-left: 250px;
-  padding-right: 250px;
+  padding: 100px 20px 50px;
+  max-width: 1200px;
+  margin: 0 auto;
   font-family: Arial, sans-serif;
 }
 
+/* Grid layout */
+.guidance-grid {
+  display: grid;
+  grid-template-columns: 1fr 350px;
+  gap: 16px;
+}
+
+/* Cards */
 .card {
   background: #f4f8ff;
   padding: 15px;
@@ -26,6 +33,14 @@
   border-radius: 8px;
 }
 
+/* Sidebar */
+aside {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* SOS Button */
 .sos-btn {
   background: red;
   color: white;
@@ -34,5 +49,49 @@
   border: none;
   border-radius: 6px;
   cursor: pointer;
-  margin-top: 15px;
+  width: 100%;
+}
+
+/* 📱 Tablet */
+@media (max-width: 1024px) {
+  .guidance-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .guidance-container {
+    padding: 90px 30px 40px;
+  }
+}
+
+/* 📱 Mobile */
+@media (max-width: 600px) {
+  .guidance-container {
+    padding: 80px 15px 30px;
+  }
+
+  h1 {
+    font-size: 20px;
+  }
+
+  h2 {
+    font-size: 18px;
+  }
+
+  .card,
+  .emergency-box,
+  .contacts-box {
+    padding: 12px;
+  }
+}
+
+@media (min-width: 1024px) {
+  aside {
+    position: sticky;
+    top: 100px;
+  }
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  transition: 0.2s;
 }

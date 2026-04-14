@@ -1,12 +1,19 @@
 const mongoose = require("mongoose");
 const TripModel = require("../model/TripModel.js");
 const User = require("../model/UserModel");
+const TouristPlaceModel = require("../model/TouristPlacesModel.js");
 const {
   sendEmail,
   sendLocationEmail,
+  sendPlacesEmail,
   sendEmergencyEmail,
 } = require("../util/sendEmail");
-const { sendSMS, sendLocationSMS } = require("../util/sendSms");
+const {
+  sendSMS,
+  sendEmergencySMS,
+  sendLocationSMS,
+  sendPlacesSMS,
+} = require("../util/sendSms");
 const { v4: uuidv4 } = require("uuid");
 const axios = require("axios");
 const { triggerEmergencySocket } = require("../sockets/sosSocket");
@@ -16,7 +23,9 @@ const { getTrafficData } = require("../util/trafficService");
 const { getTrafficStatus } = require("../util/trafficService");
 const { checkAlerts } = require("../util/alertService");
 const { getNearbyPlaces } = require("../util/mapService.js");
+const { getTouristPlaces } = require("../util/placesService.js");
 const { getDistance } = require("../util/mapService.js");
+const TouristPlacesModel = require("../model/TouristPlacesModel.js");
 
 // ===============================
 // 🔧 HELPER FUNCTIONS
@@ -513,11 +522,11 @@ exports.trackLocation = async (req, res) => {
     }
 
     // ⚠ ALERTS
-    // try {
-    //   await checkAlerts(trip);
-    // } catch (err) {
-    //   console.error("Alert error:", err);
-    // }
+    try {
+      await checkAlerts(trip);
+    } catch (err) {
+      console.error("Alert error:", err);
+    }
 
     const travelerName = trip.traveler?.name || "Traveler";
     const primaryEmail = trip.traveler?.email;
@@ -864,48 +873,6 @@ exports.triggerEmergency = async (req, res) => {
 
     const combined = [...hospitals, ...police];
 
-    // const uniquePlaces = Array.from(
-    //   new Map(combined.map((p) => [p.display_name, p])).values(),
-    // );
-
-    // // const sortedPlaces = uniquePlaces.sort(
-    // //   (a, b) => (a.distance || 999) - (b.distance || 999),
-    // // );
-    // const sortedPlaces = uniquePlaces
-    //   .filter((p) => p.lat && (p.lon || p.lng)) // remove invalid coords
-    //   .sort((a, b) => a.distance - b.distance);
-
-    // const nearestHospital = sortedPlaces.find((p) =>
-    //   p.display_name?.toLowerCase().includes("hospital"),
-    // );
-
-    // const nearestPolice = sortedPlaces.find((p) =>
-    //   p.display_name?.toLowerCase().includes("police"),
-    // );
-
-    // const remaining = sortedPlaces.filter(
-    //   (p) => p !== nearestHospital && p !== nearestPolice,
-    // );
-
-    // const nearestPlaces = [
-    //   nearestHospital,
-    //   nearestPolice,
-    //   ...remaining.slice(0, 10),
-    // ].filter(Boolean);
-
-    // const formattedPlaces = nearestPlaces.map((place) => ({
-    //   name: place.display_name?.split(",")[0] || "Unknown",
-    //   address: place.display_name || "Unknown",
-    //   distance: place.distance ? place.distance.toFixed(2) : "N/A",
-    //   lat: Number(place.lat) || 0,
-    //   lng: Number(place.lon || place.lng),
-    //   type: place.display_name?.toLowerCase().includes("police")
-    //     ? "police"
-    //     : place.display_name?.toLowerCase().includes("hospital")
-    //       ? "hospital"
-    //       : "other",
-    // }));
-
     const uniquePlaces = Array.from(
       new Map(combined.map((p) => [p.display_name, p])).values(),
     );
@@ -948,20 +915,6 @@ exports.triggerEmergency = async (req, res) => {
       ...remaining.slice(0, 10),
     ].filter(Boolean);
 
-    // const formattedPlaces = nearestPlaces.map((place) => ({
-    //   name: place.display_name?.split(",")[0] || "Unknown",
-    //   address: place.display_name || "Unknown",
-    //   distance: place.distance.toFixed(2),
-    //   lat: Number(place.lat),
-    //   // lng: Number(place.lon || place.lng),
-    //   lng: parseFloat(place.lon),
-    //   // lng: place.lon ? parseFloat(place.lon) : null, // ✅ FIXED
-    //   type: isPolice(place)
-    //     ? "police"
-    //     : isHospital(place)
-    //       ? "hospital"
-    //       : "other",
-    // }));
     const formattedPlaces = nearestPlaces.map((place) => {
       const lat = parseFloat(place.lat);
       const lng = parseFloat(place.lon);
@@ -986,20 +939,6 @@ exports.triggerEmergency = async (req, res) => {
     // ===============================
     // ✅ UPDATE TRIP (NOW SAFE)
     // ===============================
-    // const updatedTrip = await TripModel.findOneAndUpdate(
-    //   { tripId },
-    //   {
-    //     status: "Emergency",
-    //     emergencyTriggeredAt: new Date(),
-    //     sosTriggered: true,
-    //     sosPlaces: formattedPlaces,
-    //     sosLocation: {
-    //       lat: latitude,
-    //       lng: longitude,
-    //     },
-    //   },
-    //   { new: true },
-    // );
 
     // console.log("✅ Trip updated:", updatedTrip.status);
     const updatedTrip = await TripModel.findOneAndUpdate(
@@ -1046,13 +985,13 @@ exports.triggerEmergency = async (req, res) => {
     // console.log("📞 Emergency numbers:", phoneNumbers);
     // console.log("📧 Emergency emails:", emailAddresses);
 
-    // await sendSMS(phoneNumbers, latitude, longitude);
+    await sendEmergencySMS(phoneNumbers, latitude, longitude, formattedPlaces);
 
     await Promise.all([
       sendEmergencyEmail(primaryEmail, latitude, longitude, formattedPlaces),
-      // ...emailAddresses.map((email) =>
-      //   sendEmergencyEmail(email, latitude, longitude, formattedPlaces),
-      // ),
+      ...emailAddresses.map((email) =>
+        sendEmergencyEmail(email, latitude, longitude, formattedPlaces),
+      ),
     ]);
 
     res.json({
@@ -1235,5 +1174,230 @@ exports.checkTrafficAndSendAlert = async (req, res) => {
       message: "Traffic API failed",
       error: err.message,
     });
+  }
+};
+
+// exports.touristPlaces = async (req, res) => {
+//   try {
+//     const { lat, lng, tripId, type } = req.query;
+
+//     if (!lat || !lng || !tripId || !type) {
+//       return res.status(400).json({
+//         message: "lat, lng, tripId & type required",
+//       });
+//     }
+
+//     const numLat = Number(lat);
+//     const numLng = Number(lng);
+//     const userId = req.user._id;
+
+//     let existingDoc = await TouristPlacesModel.findOne({
+//       userId,
+//       tripId,
+//     });
+
+//     // ✅ Return from DB if exists
+//     if (existingDoc) {
+//       const filtered = existingDoc.touristPlaces.filter((p) => p.type === type);
+
+//       if (filtered.length > 0) {
+//         return res.json({
+//           message: "Fetched from DB",
+//           places: filtered,
+//         });
+//       }
+//     }
+
+//     // ✅ Fetch from API
+//     const places = await getTouristPlaces(numLat, numLng, type);
+//     const newPlaces = places.filter(
+//       (p) =>
+//         !existingDoc.touristPlaces.some(
+//           (ep) => ep.name === p.name && ep.type === type,
+//         ),
+//     );
+
+//     let updatedDoc;
+
+//     if (existingDoc) {
+//       // existingDoc.touristPlaces.push(
+//       //   ...places.map((p) => ({
+//       //     name: p.name,
+//       //     lat: p.lat,
+//       //     lng: p.lng,
+//       //     type,
+//       //     distance: Number(p.distance),
+//       //     sourceLat: numLat,
+//       //     sourceLng: numLng,
+//       //   }))
+//       // );
+//       existingDoc.touristPlaces.push(
+//         ...newPlaces.map((p) => ({
+//           name: p.name,
+//           lat: p.lat,
+//           lng: p.lng,
+//           type,
+//           distance: Number(p.distance),
+//           sourceLat: numLat,
+//           sourceLng: numLng,
+//         })),
+//       );
+
+//       updatedDoc = await existingDoc.save();
+//     } else {
+//       updatedDoc = await TouristPlacesModel.create({
+//         userId,
+//         tripId,
+//         touristPlaces: places.map((p) => ({
+//           name: p.name,
+//           lat: p.lat,
+//           lng: p.lng,
+//           type,
+//           distance: Number(p.distance),
+//           sourceLat: numLat,
+//           sourceLng: numLng,
+//         })),
+//       });
+//     }
+
+//     const filtered = updatedDoc.touristPlaces.filter((p) => p.type === type);
+
+//     res.json({
+//       message: "Fetched & saved",
+//       places: filtered,
+//     });
+//   } catch (error) {
+//     console.error("Tourist Places Error:", error);
+//     res.status(500).json({ message: "Server Error" });
+//   }
+// };
+
+exports.touristPlaces = async (req, res) => {
+  try {
+    const { lat, lng, tripId, type } = req.query;
+
+    if (!lat || !lng || !tripId || !type) {
+      return res.status(400).json({
+        message: "lat, lng, tripId & type required",
+      });
+    }
+
+    const numLat = Number(lat);
+    const numLng = Number(lng);
+    const userId = req.user._id;
+
+    let existingDoc = await TouristPlacesModel.findOne({
+      userId,
+      tripId,
+    });
+
+    // ✅ If already exists → return filtered
+    if (existingDoc) {
+      const filtered = existingDoc.touristPlaces.filter(
+        (p) => p.type === type
+      );
+
+      if (filtered.length > 0) {
+        return res.json({
+          message: "Fetched from DB",
+          places: filtered,
+        });
+      }
+    }
+
+    // ✅ Fetch from API
+    const places = await getTouristPlaces(numLat, numLng, type);
+
+    if (!places || places.length === 0) {
+      return res.json({ message: "No places found" });
+    }
+
+    let updatedDoc;
+
+    if (existingDoc) {
+      // ✅ REMOVE DUPLICATES SAFELY
+      const newPlaces = places.filter(
+        (p) =>
+          !existingDoc.touristPlaces.some(
+            (ep) => ep.name === p.name && ep.type === type
+          )
+      );
+
+      existingDoc.touristPlaces.push(
+        ...newPlaces.map((p) => ({
+          name: p.name,
+          lat: p.lat,
+          lng: p.lng,
+          type,
+          distance: Number(p.distance),
+          sourceLat: numLat,
+          sourceLng: numLng,
+        }))
+      );
+
+      updatedDoc = await existingDoc.save();
+    } else {
+      // ✅ CREATE NEW DOC
+      updatedDoc = await TouristPlacesModel.create({
+        userId,
+        tripId,
+        touristPlaces: places.map((p) => ({
+          name: p.name,
+          lat: p.lat,
+          lng: p.lng,
+          type,
+          distance: Number(p.distance),
+          sourceLat: numLat,
+          sourceLng: numLng,
+        })),
+      });
+    }
+
+    const filtered = updatedDoc.touristPlaces.filter(
+      (p) => p.type === type
+    );
+
+    res.json({
+      message: "Fetched & saved",
+      places: filtered,
+    });
+  } catch (error) {
+    console.error("Tourist Places Error:", error);
+    res.status(500).json({ message: "Server Error" });
+  }
+};
+
+exports.sendPreferredPlaces = async (req, res) => {
+  try {
+    const { lat, lng, type, tripId } = req.body;
+
+    if (!lat || !lng || !type || !tripId) {
+      return res.status(400).json({ message: "Missing data" });
+    }
+
+    const trip = await TripModel.findOne({ tripId });
+
+    if (!trip) {
+      return res.status(404).json({ message: "Trip not found" });
+    }
+
+    const email = trip.traveler?.email;
+
+    // ✅ FIXED HERE
+    const places = await getTouristPlaces(lat, lng, type);
+
+    if (!places || places.length === 0) {
+      return res.json({ message: "No places found" });
+    }
+
+    await sendPlacesEmail(email, places, lat, lng);
+
+    res.json({
+      message: `✅ ${type} places sent to email`,
+      count: places.length,
+    });
+  } catch (error) {
+    console.error("Send Preferred Places Error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };

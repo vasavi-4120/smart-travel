@@ -12,7 +12,7 @@ function Guidance() {
     <>
       <div className="guidance-container">
         <h1>Tourist Safety & Emergency Guidance</h1>
-        <div
+        {/* <div
           style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 16 }}
         >
           <div>
@@ -22,13 +22,32 @@ function Guidance() {
             <SafetyScore />
             <EmergencyByLocation />
             {/* add quick SOS button and cached guidance */}
-            <div style={{ marginTop: 16 }}>
+            {/* <div style={{ marginTop: 16 }}>
               <button
                 style={{
                   background: "red",
                   color: "white",
                   padding: "10px 14px",
                 }}
+                onClick={() => alert("SOS triggered (mock)")}
+              >
+                SOS
+              </button>
+            </div>
+          </aside>
+        </div> */} 
+        <div className="guidance-grid">
+          <div>
+            <SafeMap />
+          </div>
+
+          <aside>
+            <SafetyScore />
+            <EmergencyByLocation />
+
+            <div>
+              <button
+                className="sos-btn"
                 onClick={() => alert("SOS triggered (mock)")}
               >
                 SOS

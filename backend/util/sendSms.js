@@ -1,91 +1,130 @@
-const twilio = require("twilio");
+const axios = require("axios");
 
-const client = twilio(process.env.TWILIO_SID, process.env.TWILIO_AUTH_TOKEN);
+// 🌐 Replace with your phone IP
+const BASE_URL = "http://192.168.122.1:8080/send-sms";
 
+// ✅ Single SMS
 const sendSMS = async (number, message) => {
   try {
-    await client.messages.create({
-      body: message,
-      from: process.env.TWILIO_PHONE_NUMBER,
-      to: `+91${number}`,
+    const response = await axios.post(BASE_URL, {
+      phone: number,
+      message: message,
     });
 
-    console.log(`✅ SMS sent to ${number}`);
+    console.log(`✅ SMS sent to ${number}`, response.data);
   } catch (err) {
-    console.error(`❌ SMS failed to ${number}:`, err.message);
+    console.error(
+      `❌ SMS failed to ${number}:`,
+      err.response?.data || err.message,
+    );
   }
 };
 
-// const sendLocationSMS = async (number, userName, trackingLink, tripId) => {
-//   try {
-//     const message = `${userName} is currently on a trip.
-// Live location: ${trackingLink}
-// Trip ID: ${tripId}`;
-
-//     await client.messages.create({
-//       body: message,
-//       from: process.env.TWILIO_PHONE_NUMBER,
-//       to: `+91${number}`,
-//     });
-
-//     console.log(`📍 Location SMS sent to ${number}`);
-//   } catch (err) {
-//     console.error("❌ Location SMS Error:", err.message);
-//   }
-// };
-
-const formatNumber = (num) => {
-  const cleanNum = num.toString().replace(/\D/g, ""); // Remove non-digits
-  return cleanNum.startsWith("91") ? `+${cleanNum}` : `+91${cleanNum}`;
-};
-
+// ✅ Multiple numbers (your original logic)
 const sendLocationSMS = async (numbers, userName, trackingLink, tripId) => {
-  // Ensure we are working with an array even if a single string is passed
   const phoneList = Array.isArray(numbers) ? numbers : [numbers];
 
-  const message = `📍 SmartTravel: ${userName} is on a trip. 
-Live Tracking: ${trackingLink}
+  const message = `📍 SmartTravel: ${userName} is on a trip.
+Track: ${trackingLink}
 Trip ID: ${tripId}`;
 
   const results = phoneList.map(async (number) => {
     try {
-      if (!number) return;
-
-      await client.messages.create({
-        body: message,
-        from: process.env.TWILIO_PHONE_NUMBER,
-        to: formatNumber(number),
+      await axios.post(BASE_URL, {
+        phone: number,
+        message: message,
       });
+
       console.log(`✅ Location SMS sent to ${number}`);
     } catch (err) {
-      console.error(`❌ Location SMS failed for ${number}:`, err.message);
+      console.error(
+        `❌ Location SMS failed for ${number}:`,
+        err.response?.data || err.message,
+      );
     }
   });
 
   await Promise.all(results);
 };
 
-module.exports = { sendSMS, sendLocationSMS };
+const sendPlacesSMS = async (numbers, places, lat, lng) => {
+  try {
+    const locationLink = `https://www.google.com/maps?q=${lat},${lng}`;
 
-// const twilio = require("twilio");
+    // 📍 Keep it SHORT (SMS limit!)
+    const placeText = places
+      .slice(0, 3) // only top 3 places
+      .map((p, i) => `${i + 1}. ${p.name} (${p.distance}km)`)
+      .join("\n");
 
-// const client = twilio(process.env.TWILIO_SID, process.env.TWILIO_AUTH_TOKEN);
+    const message = `🌍 Nearby Places:
 
-// const sendSMS = async (phoneNumbers, lat, lng) => {
-//   const link = `https://www.google.com/maps?q=${lat},${lng}`;
+📍 Your Location:
+${locationLink}
 
-//   for (let number of phoneNumbers) {
-//   try {
-//     await client.messages.create({
-//       body: `🚨 SOS Alert! User needs help. Location: ${link}`,
-//       from: process.env.TWILIO_PHONE_NUMBER,
-//       to: `+91${number}`,
-//     });
-//     console.log(`SMS sent successfully to ${number}`);
-//   } catch (err) {
-//     console.error(`Failed to send SMS to ${number}:`, err.message);
-//   }
-// }
-// };
+✨ Top Places:
+${placeText}`;
 
-// module.exports = { sendSMS };
+    const phoneList = Array.isArray(numbers) ? numbers : [numbers];
+
+    const results = phoneList.map(async (number) => {
+      try {
+        await axios.post(BASE_URL, {
+          phone: number,
+          message: message,
+        });
+
+        console.log(`✅ Places SMS sent to ${number}`);
+      } catch (err) {
+        console.error(`❌ SMS failed to ${number}:`, err.message);
+      }
+    });
+
+    await Promise.all(results);
+  } catch (error) {
+    console.error("❌ Places SMS Error:", error);
+  }
+};
+
+const sendEmergencySMS = async (numbers, lat, lng, places) => {
+  try {
+    const locationLink = `https://www.google.com/maps?q=${lat},${lng}`;
+
+    // 📍 Format nearby places (short for SMS)
+    const placeText = places
+      .slice(0, 2) // limit to 2 places (SMS length!)
+      .map((p, i) => `${i + 1}. ${p.name} (${p.distance}km)`)
+      .join("\n");
+
+    const message = `🚨 EMERGENCY ALERT!
+User needs help.
+
+📍 Location:
+${locationLink}
+
+🏥 Nearby:
+${placeText}`;
+
+    const phoneList = Array.isArray(numbers) ? numbers : [numbers];
+
+    const results = phoneList.map(async (number) => {
+      try {
+        await axios.post(BASE_URL, {
+          phone: number,
+          message: message,
+        });
+
+        console.log(`✅ SMS sent to ${number}`);
+      } catch (err) {
+        console.error(`❌ SMS failed to ${number}:`, err.message);
+      }
+    });
+
+    await Promise.all(results);
+  } catch (error) {
+    console.error("❌ Emergency SMS Error:", error);
+  }
+};
+
+module.exports = { sendSMS, sendLocationSMS, sendPlacesSMS, sendEmergencySMS };
+

@@ -65,6 +65,80 @@ const sendLocationEmail = async (to, userName, trackingLink, tripId) => {
 
 // <a href="${locationUrl}" target="_blank">View Location</a>
 
+// services/emailService.js
+// const sendPlacesEmail = async (emails, places, lat, lng) => {
+//   try {
+//     const locationLink = `https://www.google.com/maps?q=${lat},${lng}`;
+
+//     const placeList = places
+//       .map(
+//         (p) => `
+//         <li>
+//           <b>${p.name}</b><br/>
+//           📌 Type: ${p.type}<br/>
+//           📍 Distance: ${p.distance} km<br/>
+//           <a href="${p.mapLink}" target="_blank">View on Map</a>
+//         </li>
+//       `
+//       )
+//       .join("");
+
+//     const htmlContent = `
+//       <h2>🌍 Nearby Visiting Places</h2>
+//       <p><b>User Location:</b></p>
+//       <a href="${locationLink}" target="_blank">View Current Location</a>
+
+//       <h3>✨ Suggested Places:</h3>
+//       <ul>${placeList}</ul>
+
+//       <p>Enjoy your trip! ✈️</p>
+//     `;
+
+//     await transporter.sendMail({
+//       from: `"Smart Travel ✈️" <${process.env.EMAIL_USER}>`,
+//       to: Array.isArray(emails) ? emails.join(",") : emails,
+//       subject: "🌍 Tourist Places Near You",
+//       html: htmlContent,
+//     });
+
+//     console.log("✅ Places email sent");
+//   } catch (error) {
+//     console.error("❌ Places Email Error:", error);
+//   }
+// };
+const sendPlacesEmail = async (email, places, lat, lng) => {
+  const locationLink = `https://www.google.com/maps?q=${lat},${lng}`;
+
+  const placeList = places
+    .map(
+      (p) => `
+      <li>
+        <b>${p.name}</b><br/>
+        📌 Type: ${p.type}<br/>
+        📍 Distance: ${p.distance} km<br/>
+        <a href="${p.mapLink}" target="_blank">View on Map</a>
+      </li>
+    `
+    )
+    .join("");
+
+  const html = `
+    <h2>🌍 Places Based on Your Preference</h2>
+    <p><b>Your Location:</b></p>
+    <a href="${locationLink}">View Location</a>
+
+    <h3>✨ Recommended:</h3>
+    <ul>${placeList}</ul>
+  `;
+
+  await transporter.sendMail({
+    from: `"Smart Travel ✈️" <${process.env.EMAIL_USER}>`,
+    to: email,
+    subject: "🌍 Your Travel Recommendations",
+    html,
+  });
+};
+
 
 const sendEmergencyEmail = async (emails, lat, lng, places) => {
   try {
@@ -107,4 +181,4 @@ const sendEmergencyEmail = async (emails, lat, lng, places) => {
   }
 };
 
-module.exports = { sendEmail, sendLocationEmail, sendEmergencyEmail };
+module.exports = { sendEmail, sendLocationEmail, sendPlacesEmail, sendEmergencyEmail };
