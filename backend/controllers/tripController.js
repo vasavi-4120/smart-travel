@@ -15,6 +15,7 @@ const {
   sendPlacesSMS,
 } = require("../util/sendSms");
 const { v4: uuidv4 } = require("uuid");
+const serverUrl = "http://localhost:5173" || process.env.SERVER_URL;
 const axios = require("axios");
 const { triggerEmergencySocket } = require("../sockets/sosSocket");
 const { checkWeatherAlert } = require("../util/weatherAlert");
@@ -570,7 +571,7 @@ exports.trackLocation = async (req, res) => {
       );
 
       if (updated) {
-        const trackingLink = `http://localhost:5173/track/${trip.tripId}`;
+        const trackingLink = `${serverUrl}/track/${trip.tripId}`;
 
         await sendLocationSMS(
           phoneNumbers,

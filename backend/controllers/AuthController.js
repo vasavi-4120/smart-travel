@@ -8,6 +8,8 @@ const { sendEmail } = require("../util/sendEmail");
 const crypto = require("crypto"); // Standard Node.js module
 const twilio = require('twilio'); //for mobile notifications
 
+const backendUrl =  "http://localhost:8000" ||process.env.BASE_URL ;
+
 // Initialize Twilio
 const client = new twilio(process.env.TWILIO_SID, process.env.TWILIO_AUTH_TOKEN);
 
@@ -52,7 +54,7 @@ module.exports.Signup = async (req, res) => {
     </p>
   </div>
 `;
-    const link = `http://localhost:8000/api/auth/verify/${verificationToken}`;
+    const link = `${backendUrl}/api/auth/verify/${verificationToken}`;
     await sendEmail(
       user.email,
       "Verify your Smart Travel Account",
@@ -171,8 +173,11 @@ module.exports.Login = async (req, res) => {
 module.exports.Logout = async (req, res) => {
   res.clearCookie("token", {
     httpOnly: true,
-    sameSite: "lax",
-    secure: false,
+    // sameSite: "lax",
+    // secure: false,
+    sameSite: isProduction ? "none" : "lax",
+  secure: isProduction,
+      path: "/",
   });
   res.json({ message: "Logged out" });
 };
@@ -280,6 +285,7 @@ module.exports.VerifyEmail = async (req, res) => {
 //   return res.status(401).json({ user: null });
 // }
 // };
+
 module.exports.GetCurrentUser = async (req, res) => {
   const token = req.cookies.token;
 
