@@ -77,6 +77,7 @@ const Dashboard = () => {
   const [userLocation, setUserLocation] = useState(null);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const serverUrl =  "http://localhost:8000" || import.meta.env.VITE_SERVER_URL;
   const navigate = useNavigate();
   const [activeTrip, setActiveTrip] = useState(null);
   const [destination, setDestination] = useState(null);
@@ -183,7 +184,7 @@ const Dashboard = () => {
 
     const fetchTrip = async () => {
       try {
-        const res = await axios.get("http://localhost:8000/api/trips/myTrip", {
+        const res = await axios.get(`${serverUrl}/api/trips/myTrip`, {
           withCredentials: true,
         });
         setTrips(res.data); // Keep the table updated
@@ -252,7 +253,7 @@ const Dashboard = () => {
 
           try {
             await axios.post(
-              "http://localhost:8000/api/trips/trackLocation",
+              `${serverUrl}/api/trips/trackLocation`,
               {
                 tripId: activeTrip.tripId,
                 lat: position.coords.latitude,
@@ -412,7 +413,7 @@ const Dashboard = () => {
   const cancelTrip = async (trip) => {
     try {
       await axios.put(
-        `http://localhost:8000/api/trips/cancel-trip/${trip.tripId}`,
+        `${serverUrl}/api/trips/cancel-trip/${trip.tripId}`,
         { reason: "User cancelled manually" },
         { withCredentials: true },
       );
@@ -469,7 +470,7 @@ const Dashboard = () => {
           const { latitude, longitude } = pos.coords;
 
           const res = await fetch(
-            `http://localhost:8000/api/trips/trigger-emergency/${activeTrip.tripId}`,
+            `${serverUrl}/api/trips/trigger-emergency/${activeTrip.tripId}`,
             {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
@@ -521,7 +522,7 @@ const Dashboard = () => {
   const handleShowSOSPlaces = async (tripId) => {
     try {
       const res = await axios.get(
-        `http://localhost:8000/api/trips/sos/${tripId}`,
+        `${serverUrl}/api/trips/sos/${tripId}`,
         { withCredentials: true },
       );
 
@@ -554,39 +555,6 @@ const Dashboard = () => {
     }
   };
 
-  // const handleSendPlaces = async (type) => {
-  //   try {
-  //     setLoadingType(type);
-
-  //     if (!activeTrip?.liveLocation?.lat || !activeTrip?.liveLocation?.lng) {
-  //       alert("❌ Location not available yet");
-  //       return;
-  //     }
-
-  //     const { lat, lng } = activeTrip.liveLocation;
-
-  //     const res = await axios.post(
-  //       "http://localhost:8000/api/trips/send-preferred-places",
-  //       {
-  //         lat,
-  //         lng,
-  //         type,
-  //         tripId: activeTrip.tripId,
-  //       },
-  //       { withCredentials: true },
-  //     );
-
-  //     //  alert(`✅ ${type} places sent to your email`);
-
-  //     alert(res.data.message);
-  //   } catch (err) {
-  //     console.error(err);
-  //     alert("❌ Failed to send places");
-  //   } finally {
-  //     setLoadingType(null);
-  //   }
-  // };
-
   const handleSendPlaces = async (type) => {
   try {
     setLoadingType(type);
@@ -605,7 +573,7 @@ const Dashboard = () => {
     console.log("📍 Sending destination:", lat, lng);
 
     const res = await axios.post(
-      "http://localhost:8000/api/trips/send-preferred-places",
+      `${serverUrl}/api/trips/send-preferred-places`,
       {
         lat,
         lng,

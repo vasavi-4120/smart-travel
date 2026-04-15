@@ -11,6 +11,7 @@ const DEFAULT_LOCATION = [78.4867, 17.385];
 const SafeRouteMap = ({ trip, sosData, sosPlaces, triggerSOSView }) => {
   const mapContainer = useRef(null);
   const map = useRef(null);
+  const serverUrl = "http://localhost:8000" || import.meta.env.VITE_SERVER_URL;
 
   const userMarker = useRef(null);
   const startMarker = useRef(null);

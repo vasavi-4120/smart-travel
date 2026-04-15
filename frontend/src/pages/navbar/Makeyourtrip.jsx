@@ -15,6 +15,7 @@ function Makeyourtrip() {
   const [loading, setLoading] = useState(false);
   const [validationStatus, setValidationStatus] = useState("");
   const [errors, setErrors] = useState({});
+  const serverUrl = "http://localhost:8000" || import.meta.env.VITE_SERVER_URL;
 
   const [formData, setFormData] = useState({
     traveler: {
@@ -177,7 +178,7 @@ function Makeyourtrip() {
       setLoading(true);
 
       const res = await axios.post(
-        "http://localhost:8000/api/proof/upload",
+        `${serverUrl}/api/proof/upload`,
         formDataUpload,
         {
           headers: {
@@ -313,7 +314,7 @@ function Makeyourtrip() {
       console.log("Submission data:", submissionData);
 
       const res = await axios.post(
-        "http://localhost:8000/api/trips/register", // ✅ use only ONE correct route
+        `${serverUrl}/api/trips/register`,
         submissionData,
         { withCredentials: true },
       );
@@ -451,7 +452,7 @@ function Makeyourtrip() {
         proofNumber,
       });
 
-      const response = await fetch("http://localhost:8000/api/proof/validate", {
+      const response = await fetch(`${serverUrl}/api/proof/validate`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

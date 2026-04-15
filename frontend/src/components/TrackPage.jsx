@@ -7,10 +7,9 @@ import socket from "../socket/socket";
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_API_KEY;
 
-// const socket = io("http://localhost:8000");
-
 const TrackPage = () => {
   const { tripId } = useParams();
+  const serverUrl = "http://localhost:8000" || import.meta.env.VITE_SERVER_URL;
 
   const mapContainer = useRef(null);
   const map = useRef(null);
@@ -28,7 +27,7 @@ const TrackPage = () => {
   // ✅ Fetch trip
   const fetchTrip = async () => {
     try {
-      const res = await fetch(`http://localhost:8000/api/trips/${tripId}`, {
+      const res = await fetch(`${serverUrl}/api/trips/${tripId}`, {
         credentials: "include",
       });
 

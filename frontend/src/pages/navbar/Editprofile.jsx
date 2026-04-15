@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 function Editprofile() {
   const { userData, setUserData, loading } = useContext(userDataContext);
   const navigate = useNavigate();
+  const serverUrl =  "http://localhost:8000" || import.meta.env.VITE_SERVER_URL;
 
   // Handle loading state to prevent "undefined" errors
   if (loading || !userData)
@@ -27,7 +28,7 @@ function Editprofile() {
 
     try {
       const response = await fetch(
-        "http://localhost:8000/api/auth/updateProfile",
+        `${serverUrl}/api/auth/updateProfile`,
         {
           method: "PUT",
           body: formData,

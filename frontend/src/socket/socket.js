@@ -2,16 +2,12 @@ import { io } from "socket.io-client";
 
 // let socket;
 
-const socket = io("http://localhost:8000", {
+const SERVER_URL ="http://localhost:8000"  ||  import.meta.env.VITE_SERVER_URL;
+
+const socket = io(SERVER_URL, {
   withCredentials: true,
   autoConnect: false, // important
 });
 
-// if (!socket) {
-//   socket = io("http://localhost:8000", {
-//     withCredentials: true,
-//     transports: ["websocket"],
-//   });
-// }
 
 export default socket;
