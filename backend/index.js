@@ -24,9 +24,11 @@ const uri = process.env.MONGO_URL;
 // ================= SOCKET.IO =================
 const { Server } = require("socket.io");
 
+const serverUrl = "http://localhost:5173" || process.env.SERVER_URL;
+
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: serverUrl,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
   },
@@ -62,7 +64,7 @@ app.set("trust proxy", 1);
 // ================= MIDDLEWARE =================
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: serverUrl,
     credentials: true,
   })
 );
