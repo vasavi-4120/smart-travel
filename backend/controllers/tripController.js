@@ -64,47 +64,9 @@ function normalizeStatus(status) {
   return lower.charAt(0).toUpperCase() + lower.slice(1);
 }
 
-// function combineDateAndTime(date, time) {
-//   if (!date || !time) return null;
-
-//   const dateObj = new Date(date);
-//   const dateStr = dateObj.toISOString().slice(0, 10);
-
-//   return new Date(`${dateStr}T${time}:00+05:30`);
-// }
 exports.combineDateAndTime = combineDateAndTime;
 exports.normalizeStatus = normalizeStatus;
-
-// function updateTripStatus(trip) {
-//   const start = combineDateAndTime(trip.startDate, trip.startTime);
-//   const end = combineDateAndTime(trip.endDate, trip.endTime);
-
-//   const now = new Date();
-
-//   if (!start || !end) {
-//     console.log("❌ Missing date/time:", trip.tripId);
-//     return trip.status; // ✅ NEVER return undefined
-//   }
-
-//   if (now < start) return "Pending";
-//   if (now >= start && now <= end) return "Active";
-//   return "Completed"; // ✅ ALWAYS return something
-// }
 exports.updateTripStatus = updateTripStatus;
-
-// function combineDateAndTime(date, time) {
-//   if (!date || !time) return null;
-
-//   const dateObj = new Date(date);
-//   const dateStr = dateObj.toISOString().slice(0, 10);
-
-//   // Create a full IST datetime string explicitly so parsing is consistent.
-//   const dateTimeString = `${dateStr}T${time}:00+05:30`;
-//   const combined = new Date(dateTimeString);
-
-//   return Number.isNaN(combined.getTime()) ? null : combined;
-// }
-// exports.combineDateAndTime = combineDateAndTime;
 
 const getEmergencyNumbers = (contactDetails) => {
   const numbers = [];
