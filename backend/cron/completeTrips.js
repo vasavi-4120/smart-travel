@@ -1,177 +1,68 @@
 const cron = require("node-cron");
-
 const mongoose = require("mongoose");
-
 const TripModel = require("../model/TripModel");
+const {
+  updateTripStatus,
+  combineDateAndTime,
+} = require("../controllers/tripController");
 
-const { combineDateAndTime } = require("../controllers/tripController");
+module.exports = (io) => {
+  console.log("⏰ completeTrips cron initialized");
 
-cron.schedule("*/15 * * * *", async () => {
-  try {
-    if (mongoose.connection.readyState !== 1) return;
+  cron.schedule("*/1 * * * *", async () => {
+    try {
+      if (mongoose.connection.readyState !== 1) {
+        console.log("completeTrips cron skipped because MongoDB is not ready", mongoose.connection.readyState);
+        return;
+      }
 
-    const now = new Date();
-    console.log(`⏱️ Cron Triggered: ${now.toISOString()}`);
+      console.log("completeTrips cron running", new Date().toISOString());
 
-    const result = await TripModel.updateMany(
-      {
-        // 1. FILTER: Only look for trips that COULD transition
-        status: { $in: ["Pending", "Active"] },
-        sosTriggered: false, // Double-check: SOS must be false
-        cancelledAt: { $exists: false }
-      },
-      [
-        {
-          $set: {
-            computedStart: {
-              $dateFromString: {
-                dateString: {
-                  $concat: [
-                    { $dateToString: { format: "%Y-%m-%d", date: "$startDate" } },
-                    "T", "$startTime", ":00Z"
-                  ]
-                }
-              }
-            },
-            computedEnd: {
-              $dateFromString: {
-                dateString: {
-                  $concat: [
-                    { $dateToString: { format: "%Y-%m-%d", date: "$endDate" } },
-                    "T", "$endTime", ":00Z"
-                  ]
-                }
-              }
-            }
+      const trips = await TripModel.find({
+        status: { $nin: ["Cancelled", "Completed", "Emergency"] },
+      });
+
+      let modified = 0;
+
+      for (const trip of trips) {
+        const start = combineDateAndTime(trip.startDate, trip.startTime);
+        const end = combineDateAndTime(trip.endDate, trip.endTime);
+
+        const newStatus = updateTripStatus(trip); // ✅ FIXED
+
+        console.log(`🔄 Trip ${trip.tripId}: current=${trip.status}, computed=${newStatus}, start=${start}, end=${end}, now=${new Date().toISOString()}`);
+
+        if (!newStatus) {
+          console.log(`⚠️ Skipping trip ${trip.tripId}: no newStatus`);
+          continue; // safety
+        }
+
+        if (trip.status !== newStatus) {
+          console.log(`📝 Updating trip ${trip.tripId} from ${trip.status} to ${newStatus}`);
+          await TripModel.updateOne(
+            { _id: trip._id },
+            { $set: { status: newStatus } }
+          );
+
+          modified++;
+
+          if (io) {
+            io.emit("TRIP_STATUS_UPDATED", {
+              tripId: trip.tripId,
+              status: newStatus,
+            });
+            console.log(`📡 Emitted status update for trip ${trip.tripId}`);
           }
-        },
-        {
-          $set: {
-            status: {
-              $switch: {
-                branches: [
-                  // 🚨 EMERGENCY PROTECTION: If SOS was triggered during this 
-                  // calculation, keep it as "Emergency" (or current status)
-                  { 
-                    case: { $eq: ["$sosTriggered", true] }, 
-                    then: "$status" 
-                  },
-                  // 🟢 Active -> Completed
-                  { 
-                    case: { 
-                      $and: [
-                        { $eq: ["$status", "Active"] }, 
-                        { $gte: [now, "$computedEnd"] }
-                      ] 
-                    }, 
-                    then: "Completed" 
-                  },
-                  // 🟡 Pending -> Active
-                  { 
-                    case: { 
-                      $and: [
-                        { $eq: ["$status", "Pending"] }, 
-                        { $gte: [now, "$computedStart"] }
-                      ] 
-                    }, 
-                    then: "Active" 
-                  }
-                ],
-                default: "$status"
-              }
-            }
-          }
-        },
-        { $unset: ["computedStart", "computedEnd"] }
-      ],
-      {} 
-    );
+        } else {
+          console.log(`✅ No change needed for trip ${trip.tripId}`);
+        }
+      }
 
-    if (result.modifiedCount > 0) {
-      console.log(`✅ Cron Success: ${result.modifiedCount} statuses transitioned.`);
+      if (modified > 0) {
+        console.log(`✅ Cron updated ${modified} trips`);
+      }
+    } catch (err) {
+      console.error("❌ Cron error:", err);
     }
-  } catch (err) {
-    console.error("❌ Cron Execution Error:", err.message);
-  }
-});
-// cron.schedule("*/15 * * * *", async () => {
-//   try {
-//     if (mongoose.connection.readyState !== 1) return;
-//     const now = new Date();
-
-//     const result = await TripModel.updateMany(
-//       {
-//         // 🛡️ SECURITY FILTER: Only touch trips that aren't locked
-//         status: { $in: ["Pending", "Active"] },
-//         sosTriggered: { $ne: true },
-//         cancelledAt: { $exists: false }
-//       },
-//       [
-//         {
-//           $set: {
-//             // 1. Calculate Start and End ISO strings
-//             computedStart: {
-//               $dateFromString: {
-//                 dateString: {
-//                   $concat: [
-//                     { $dateToString: { format: "%Y-%m-%d", date: "$startDate" } },
-//                     "T", "$startTime", ":00Z"
-//                   ]
-//                 }
-//               }
-//             },
-//             computedEnd: {
-//               $dateFromString: {
-//                 dateString: {
-//                   $concat: [
-//                     { $dateToString: { format: "%Y-%m-%d", date: "$endDate" } },
-//                     "T", "$endTime", ":00Z"
-//                   ]
-//                 }
-//               }
-//             }
-//           }
-//         },
-//         {
-//           $set: {
-//             status: {
-//               $switch: {
-//                 branches: [
-//                   // 🟢 If Active and time is up -> Completed
-//                   { 
-//                     case: { 
-//                       $and: [
-//                         { $eq: ["$status", "Active"] }, 
-//                         { $gte: [now, "$computedEnd"] }
-//                       ] 
-//                     }, 
-//                     then: "Completed" 
-//                   },
-//                   // 🟡 If Pending and time to start -> Active
-//                   { 
-//                     case: { 
-//                       $and: [
-//                         { $eq: ["$status", "Pending"] }, 
-//                         { $gte: [now, "$computedStart"] }
-//                       ] 
-//                     }, 
-//                     then: "Active" 
-//                   }
-//                 ],
-//                 default: "$status" // Keep current status if no conditions met
-//               }
-//             }
-//           }
-//         },
-//         {
-//           // 🧹 Cleanup: Remove the temporary calculation fields from the document
-//           $unset: ["computedStart", "computedEnd"]
-//         }
-//       ]
-//     );
-
-//     console.log(`⏱️ Cron Job: Processed ${result.matchedCount} trips. Updated ${result.modifiedCount}.`);
-//   } catch (err) {
-//     console.error("❌ Cron Status Error:", err.message);
-//   }
-// });
+  });
+};

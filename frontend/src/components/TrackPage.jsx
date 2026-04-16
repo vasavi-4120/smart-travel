@@ -9,7 +9,7 @@ mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_API_KEY;
 
 const TrackPage = () => {
   const { tripId } = useParams();
-  const serverUrl = "http://localhost:8000" || import.meta.env.VITE_SERVER_URL;
+  const serverUrl = import.meta.env.VITE_SERVER_URL || "http://localhost:8000";
 
   const mapContainer = useRef(null);
   const map = useRef(null);

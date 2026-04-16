@@ -46,7 +46,7 @@ router.get("/geocode", userVerification, geocodeLocation);
 router.get("/places", userVerification, touristPlaces);
 
 // 🔴 ALWAYS KEEP LAST
-router.get("/:tripId", userVerification, getTripById);
-router.get("/sos/:tripId", userVerification, EmergencyMap);
+router.get("/sos/:tripId", userVerification,requireAuth, EmergencyMap);
+router.get("/:tripId", userVerification,requireAuth, getTripById);
 
 module.exports = router;

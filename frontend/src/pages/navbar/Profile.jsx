@@ -3,6 +3,7 @@ import profile from "../../assets/profile.png";
 import { userDataContext } from "../../context/UserContext";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import socket from "../../socket/socket";
 import {
   Chip,
   Paper,
@@ -49,6 +50,7 @@ function Profile() {
   const { userData, setUserData, loading } = useContext(userDataContext);
   const navigate = useNavigate();
   const [trips, setTrips] = useState([]);
+  const serverUrl = import.meta.env.VITE_SERVER_URL || "http://localhost:8000";
 
   // Memoize the user object to avoid unnecessary object creation on every render
   const user = useMemo(
@@ -100,46 +102,71 @@ function Profile() {
     }
   };
 
-  //   useEffect(() => {
+  useEffect(() => {
+  const fetchTrips = async () => {
+    try {
+      const res = await axios.get(`${serverUrl}/api/trips/myTrip`, {
+        withCredentials: true,
+      });
+      setTrips(res.data);
+    } catch (err) {
+      if (err.response?.status === 401) {
+        setTrips([]);
+      } else {
+        console.error("Failed to fetch trips", err);
+      }
+    }
+  };
+
+  if (userData) {
+    fetchTrips();
+  } else {
+    setTrips([]);
+  }
+}, [userData]);
+  useEffect(() => {
+    if (!userData) return;
+
+    if (!socket.connected) socket.connect();
+
+    const handleStatusUpdate = (updatedTrip) => {
+      setTrips((prevTrips) =>
+        prevTrips.map((t) =>
+          t.tripId === updatedTrip.tripId ? updatedTrip : t,
+        ),
+      );
+    };
+
+    socket.on("TRIP_STATUS_UPDATED", handleStatusUpdate);
+
+    return () => {
+      socket.off("TRIP_STATUS_UPDATED", handleStatusUpdate);
+    };
+  }, [userData]);
+  // useEffect(() => {
   //   const fetchTrips = async () => {
   //     try {
-  //       const res = await axios.get(
-  //         "http://localhost:8000/api/trips/myTrip",
-  //         { withCredentials: true }
-  //       );
+  //       const res = await axios.get(`${serverUrl}/api/trips/myTrip`, {
+  //         withCredentials: true,
+  //       });
   //       setTrips(res.data);
   //     } catch (err) {
-  //       console.error("Failed to fetch trips", err);
+  //       if (err.response?.status === 401) {
+  //         // ✅ Expected when not logged in
+  //         setTrips([]);
+  //       } else {
+  //         console.error("Failed to fetch trips", err);
+  //       }
   //     }
   //   };
 
-  //   fetchTrips();
-  // }, []);
-
-  useEffect(() => {
-    const fetchTrips = async () => {
-      try {
-        const res = await axios.get("http://localhost:8000/api/trips/myTrip", {
-          withCredentials: true,
-        });
-        setTrips(res.data);
-      } catch (err) {
-        if (err.response?.status === 401) {
-          // ✅ Expected when not logged in
-          setTrips([]);
-        } else {
-          console.error("Failed to fetch trips", err);
-        }
-      }
-    };
-
-    // 🚀 Only call if user is logged in
-    if (userData) {
-      fetchTrips();
-    } else {
-      setTrips([]); // clear trips for guest
-    }
-  }, [userData]);
+  //   // 🚀 Only call if user is logged in
+  //   if (userData) {
+  //     fetchTrips();
+  //   } else {
+  //     setTrips([]); // clear trips for guest
+  //   }
+  // }, [userData]);
 
   const getStatusChipColor = (status) => {
     switch (status) {
@@ -165,10 +192,9 @@ function Profile() {
     if (!confirmDelete) return;
 
     try {
-      await axios.delete(
-        `http://localhost:8000/api/trips/delete-trip/${tripId}`,
-        { withCredentials: true },
-      );
+      await axios.delete(`${serverUrl}/api/trips/delete-trip/${tripId}`, {
+        withCredentials: true,
+      });
 
       setTrips((prev) => prev.filter((t) => t.tripId !== tripId));
     } catch (err) {

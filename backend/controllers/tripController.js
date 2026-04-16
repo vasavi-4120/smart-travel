@@ -1,7 +1,6 @@
 const mongoose = require("mongoose");
 const TripModel = require("../model/TripModel.js");
 const User = require("../model/UserModel");
-const TouristPlaceModel = require("../model/TouristPlacesModel.js");
 const {
   sendEmail,
   sendLocationEmail,
@@ -15,7 +14,7 @@ const {
   sendPlacesSMS,
 } = require("../util/sendSms");
 const { v4: uuidv4 } = require("uuid");
-const serverUrl = "http://localhost:5173" || process.env.SERVER_URL;
+const serverUrl = process.env.SERVER_URL || "http://localhost:5173";
 const axios = require("axios");
 const { triggerEmergencySocket } = require("../sockets/sosSocket");
 const { checkWeatherAlert } = require("../util/weatherAlert");
@@ -31,54 +30,81 @@ const TouristPlacesModel = require("../model/TouristPlacesModel.js");
 // ===============================
 // 🔧 HELPER FUNCTIONS
 // ===============================
-
-const updateTripStatus = (trip) => {
-  if (trip.sosTriggered === true || trip.status === "Emergency")
-    return "Emergency";
-
-  if (
-    // trip.status === "Emergency" ||
-    trip.status === "Cancelled" ||
-    trip.status === "Completed"
-  ) {
-    return trip.status;
-  }
-
-  const start = combineDateAndTime(trip.startDate, trip.startTime);
-  const end = combineDateAndTime(trip.endDate, trip.endTime);
-
-  if (!start || !end) return trip.status;
-
-  const now = new Date();
-
-  if (now < start) return "Pending";
-  if (now >= start && now <= end) return "Active";
-  return "Completed";
-};
-
 function combineDateAndTime(date, time) {
   if (!date || !time) return null;
 
-  const [hours, minutes] = time.split(":");
+  const dateObj = new Date(date);
 
-  const combined = new Date(date); // already UTC internally
-  combined.setHours(Number(hours));
-  combined.setMinutes(Number(minutes));
-  combined.setSeconds(0);
-  combined.setMilliseconds(0);
+  // ✅ Fix: Extract YYYY-MM-DD specifically in IST
+  // toISOString() can return "yesterday" if it's early morning in India
+  const dateStr = dateObj.toLocaleDateString("en-CA", {
+    timeZone: "Asia/Kolkata",
+  });
 
-  return combined;
+  // ✅ Fix: Create an absolute date by attaching the Indian offset (+05:30)
+  return new Date(`${dateStr}T${time}:00+05:30`);
 }
-exports.combineDateAndTime = combineDateAndTime;
 
-function calculateStatus(start, end) {
-  const now = new Date();
+function updateTripStatus(trip) {
+  const start = combineDateAndTime(trip.startDate, trip.startTime);
+  const end = combineDateAndTime(trip.endDate, trip.endTime);
+  const now = new Date(); // Current system time (UTC or Local, doesn't matter)
 
+  if (!start || !end) return trip.status;
+
+  // Comparison logic
   if (now < start) return "Pending";
   if (now >= start && now <= end) return "Active";
   return "Completed";
 }
-exports.calculateStatus = calculateStatus;
+
+function normalizeStatus(status) {
+  if (!status) return status;
+  const lower = String(status).toLowerCase();
+  return lower.charAt(0).toUpperCase() + lower.slice(1);
+}
+
+// function combineDateAndTime(date, time) {
+//   if (!date || !time) return null;
+
+//   const dateObj = new Date(date);
+//   const dateStr = dateObj.toISOString().slice(0, 10);
+
+//   return new Date(`${dateStr}T${time}:00+05:30`);
+// }
+exports.combineDateAndTime = combineDateAndTime;
+exports.normalizeStatus = normalizeStatus;
+
+// function updateTripStatus(trip) {
+//   const start = combineDateAndTime(trip.startDate, trip.startTime);
+//   const end = combineDateAndTime(trip.endDate, trip.endTime);
+
+//   const now = new Date();
+
+//   if (!start || !end) {
+//     console.log("❌ Missing date/time:", trip.tripId);
+//     return trip.status; // ✅ NEVER return undefined
+//   }
+
+//   if (now < start) return "Pending";
+//   if (now >= start && now <= end) return "Active";
+//   return "Completed"; // ✅ ALWAYS return something
+// }
+exports.updateTripStatus = updateTripStatus;
+
+// function combineDateAndTime(date, time) {
+//   if (!date || !time) return null;
+
+//   const dateObj = new Date(date);
+//   const dateStr = dateObj.toISOString().slice(0, 10);
+
+//   // Create a full IST datetime string explicitly so parsing is consistent.
+//   const dateTimeString = `${dateStr}T${time}:00+05:30`;
+//   const combined = new Date(dateTimeString);
+
+//   return Number.isNaN(combined.getTime()) ? null : combined;
+// }
+// exports.combineDateAndTime = combineDateAndTime;
 
 const getEmergencyNumbers = (contactDetails) => {
   const numbers = [];
@@ -288,72 +314,121 @@ exports.registerTrip = async (req, res) => {
   }
 };
 
+// exports.getUserTrips = async (req, res) => {
+//   try {
+//     // 🔐 Auth check
+//     if (!req.user || !req.user._id) {
+//       return res.status(401).json({
+//         success: false,
+//         message: "Unauthorized. Please login first.",
+//       });
+//     }
+
+//     const trips = await TripModel.find({ userId: req.user._id });
+
+//     const updatedTrips = await Promise.all(
+//       trips.map(async (trip) => {
+//         let newStatus = trip.status;
+
+//         // 🚨 Emergency always overrides everything
+//         if (trip.sosTriggered) {
+//           newStatus = "Emergency";
+//         } else {
+//           newStatus = updateTripStatus(trip);
+//         }
+
+//         // 💾 Update DB only if changed
+//         if (trip.status !== newStatus) {
+//           await TripModel.updateOne(
+//             { _id: trip._id },
+//             { $set: { status: newStatus } }
+//           );
+
+//           // 📡 Emit once per change
+//           const io = req.app.get("io");
+//           if (io) {
+//             io.emit("TRIP_STATUS_REFRESH");
+//           }
+//         }
+
+//         return {
+//           ...trip.toObject(),
+//           status: newStatus,
+//         };
+//       })
+//     );
+
+//     return res.json(updatedTrips);
+//   } catch (error) {
+//     console.error("GetUserTrips Error:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Server error",
+//     });
+//   }
+// };
+
+// exports.getUserTrips = async (req, res) => {
+//   try {
+//     if (!req.user || !req.user._id) {
+//       return res.status(401).json({
+//         success: false,
+//         message: "Unauthorized. Please login first.",
+//       });
+//     }
+
+//     // ❌ No status calculation here
+//     const trips = await TripModel.find({ userId: req.user._id });
+
+//     return res.json(trips);
+//   } catch (error) {
+//     console.error("GetUserTrips Error:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Server error",
+//     });
+//   }
+// };
 exports.getUserTrips = async (req, res) => {
   try {
-    // ✅ Check if user is logged in
     if (!req.user || !req.user._id) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized. Please login first.",
-      });
+      return res.status(401).json({ message: "Unauthorized." });
     }
 
+    // 1. Fetch all trips for the user
     const trips = await TripModel.find({ userId: req.user._id });
 
+    // 2. Map through trips to check and update status in real-time
     const updatedTrips = await Promise.all(
       trips.map(async (trip) => {
-        if (trip.sosTriggered) {
-          trip.status = "Emergency";
-          await trip.save();
+        // 🚫 Skip calculation for "Locked" states
+        const currentStatus = normalizeStatus(trip.status);
+        if (["Cancelled", "Emergency", "Completed"].includes(currentStatus)) {
+          trip.status = currentStatus;
           return trip;
         }
 
-        if (["Cancelled", "Emergency", "Completed"].includes(trip.status)) {
-          return trip;
-        }
+        const computedStatus = normalizeStatus(updateTripStatus(trip)); // Using our IST-aware function
 
-        const start = combineDateAndTime(trip.startDate, trip.startTime);
-        const end = combineDateAndTime(trip.endDate, trip.endTime);
-
-        const realTimeStatus =
-          start && end ? calculateStatus(start, end) : trip.status;
-
-        if (trip.status !== realTimeStatus) {
-          trip.status = realTimeStatus;
-          await trip.save();
+        // 🔄 Normalize returned status and write changes only when needed
+        if (currentStatus !== computedStatus) {
+          trip.status = computedStatus;
+          await TripModel.updateOne(
+            { _id: trip._id },
+            { $set: { status: computedStatus } },
+          );
+        } else {
+          trip.status = computedStatus;
         }
 
         return trip;
       }),
     );
 
-    // const trips = await TripModel.find({ userId: req.user._id }).lean();
-
-    // const updatedTrips = trips.map((trip) => {
-    //   if (trip.sosTriggered) {
-    //     return { ...trip, status: "Emergency" };
-    //   }
-
-    //   if (["Cancelled", "Emergency", "Completed"].includes(trip.status)) {
-    //     return trip;
-    //   }
-
-    //   const start = combineDateAndTime(trip.startDate, trip.startTime);
-    //   const end = combineDateAndTime(trip.endDate, trip.endTime);
-
-    //   const realTimeStatus =
-    //     start && end ? calculateStatus(start, end) : trip.status;
-
-    //   return { ...trip, status: realTimeStatus }; // ✅ no DB write
-    // });
-
-    res.json(updatedTrips);
+    return res.json(updatedTrips);
   } catch (error) {
     console.error("GetUserTrips Error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-    });
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
@@ -424,6 +499,11 @@ exports.cancelTrip = async (req, res) => {
       cancelReason: savedTrip.cancelReason,
     });
 
+    const io = req.app.get("io");
+    if (io) {
+      io.to(trip.tripId).emit("TRIP_STATUS_UPDATED", savedTrip);
+    }
+
     res.status(200).json({
       message: "Trip cancelled successfully",
       trip: savedTrip,
@@ -446,6 +526,130 @@ exports.cancelTrip = async (req, res) => {
 // 📍 TRACK LOCATION + ALERTS + WITH SOCKET IO
 //     traffic and weather alerts are triggered here for real-time updates
 // ============================================================================
+// exports.trackLocation = async (req, res) => {
+//   try {
+//     const { tripId, lat, lng } = req.body;
+
+//     if (!tripId || lat === undefined || lng === undefined) {
+//       return res.status(400).json({ message: "Missing location data" });
+//     }
+
+//     const trip = await TripModel.findOne({
+//       tripId,
+//       userId: req.user._id,
+//     });
+
+//     if (!trip) {
+//       return res.status(404).json({ message: "Trip not found" });
+//     }
+
+//     // 🚨 Emergency lock (read-only, no update here)
+//     if (trip.status === "Emergency") {
+//       return res.status(200).json({
+//         message: "🚨 Emergency active. Tracking locked.",
+//       });
+//     }
+
+//     // ❌ Cancelled check
+//     if (trip.status === "Cancelled") {
+//       return res.status(200).json({
+//         message: "Trip cancelled. No tracking allowed.",
+//       });
+//     }
+
+//     // 🛑 Stop if completed
+//     if (trip.status === "Completed") {
+//       return res.status(200).json({
+//         message: "Trip completed. Tracking stopped.",
+//       });
+//     }
+
+//     // 📍 LOCATION UPDATE ONLY
+//     trip.liveLocation = { lat, lng };
+
+//     if (!trip.locationHistory) {
+//       trip.locationHistory = [];
+//     }
+
+//     trip.locationHistory.push({
+//       lat,
+//       lng,
+//       timestamp: new Date(),
+//     });
+
+//     // await trip.save();
+
+//     // 📡 SOCKET LIVE LOCATION ONLY
+//     const io = req.app.get("io");
+//     if (io) {
+//       io.to(tripId).emit("LIVE_LOCATION_UPDATE", {
+//         tripId,
+//         lat,
+//         lng,
+//         timestamp: new Date(),
+//       });
+//     }
+
+//     // ⚠ ALERTS
+//     try {
+//       await checkAlerts(trip);
+//     } catch (err) {
+//       console.error("Alert error:", err);
+//     }
+
+//     // 👤 CONTACTS
+//     const travelerName = trip.traveler?.name || "Traveler";
+//     const primaryEmail = trip.traveler?.email;
+//     const contactDetails = trip.contactDetails || {};
+
+//     const phoneNumbers = getEmergencyNumbers(contactDetails);
+//     const emailAddresses = getEmergencyEmails(contactDetails);
+//     const validEmails = emailAddresses.filter(Boolean);
+
+//     // 📩 SHARE TRACKING LINK ONCE (based on existing status)
+//     if (trip.status === "Active" && !trip.locationShared) {
+//       const updated = await TripModel.findOneAndUpdate(
+//         { _id: trip._id, locationShared: false },
+//         { $set: { locationShared: true } },
+//         { new: true },
+//       );
+
+//       if (updated) {
+//         const trackingLink = `${serverUrl}/track/${trip.tripId}`;
+
+//         await sendLocationSMS(
+//           phoneNumbers,
+//           travelerName,
+//           trackingLink,
+//           trip.tripId,
+//         );
+
+//         await Promise.all([
+//           primaryEmail &&
+//             sendLocationEmail(
+//               primaryEmail,
+//               travelerName,
+//               trackingLink,
+//               trip.tripId,
+//             ),
+//           ...validEmails.map((email) =>
+//             sendLocationEmail(email, travelerName, trackingLink, trip.tripId),
+//           ),
+//         ]);
+//       }
+//     }
+
+//     // 🌦 FIRE AND FORGET WEATHER
+//     getWeatherData(lat, lng).catch(() => {});
+
+//     return res.status(200).json({
+//       message: "Location stored & broadcasted",
+//     });
+//   } catch (error) {
+//     console.error("Track Location Error:", error);
+//     res.status(500).json({ error: error.message });
+//   }
+// };
 exports.trackLocation = async (req, res) => {
   try {
     const { tripId, lat, lng } = req.body;
@@ -463,55 +667,68 @@ exports.trackLocation = async (req, res) => {
       return res.status(404).json({ message: "Trip not found" });
     }
 
-    // 🚨 EMERGENCY LOCK
-    if (trip.sosTriggered) {
-      if (trip.status !== "Emergency") {
-        trip.status = "Emergency";
-        await trip.save();
+    // --- 🔄 REAL-TIME STATUS UPDATE ---
+    // Calculate what the status SHOULD be based on the Indian Clock
+    const oldStatus = trip.status;
+    const computedStatus = updateTripStatus(trip);
+
+    // Only update the DB if the status has actually changed
+    // We skip this if the trip is in a "Locked" state like Emergency or Cancelled
+    if (
+      !["Emergency", "Cancelled"].includes(oldStatus) &&
+      oldStatus !== computedStatus
+    ) {
+      trip.status = computedStatus;
+      // Note: We'll save this later along with the location update
+
+      // Notify the frontend that the status flipped (e.g., Pending -> Active)
+      const io = req.app.get("io");
+      if (io) {
+        // io.to(tripId).emit("TRIP_STATUS_UPDATED", { tripId, status: computedStatus });
+        io.to(tripId).emit("TRIP_STATUS_UPDATED", trip);
       }
-
-      return res.status(200).json({
-        message: "🚨 Emergency active. Tracking locked.",
-      });
     }
 
+    // 🚨 Emergency lock
+    if (trip.status === "Emergency") {
+      return res
+        .status(200)
+        .json({ message: "🚨 Emergency active. Tracking locked." });
+    }
+
+    // ❌ Cancelled check
     if (trip.status === "Cancelled") {
-      return res.status(200).json({
-        message: "Trip cancelled. No tracking allowed.",
-      });
+      return res
+        .status(200)
+        .json({ message: "Trip cancelled. No tracking allowed." });
     }
 
-    // 🔄 STATUS UPDATE
-    const newStatus = updateTripStatus(trip);
-
-    // if (!["Cancelled", "Completed", "Emergency"].includes(trip.status)) {
-    //   trip.status = newStatus;
-    // }
-    if (trip.status !== newStatus) {
-      trip.status = newStatus;
-      // No need to wait for the final save below, but it helps to be explicit
-    }
-
-    // 🛑 STOP IF COMPLETED
+    // 🛑 Stop if completed
     if (trip.status === "Completed") {
-      await trip.save();
-
-      return res.status(400).json({
-        message: "Trip completed. Tracking stopped.",
-      });
+      // Save the final status if it just changed to Completed
+      if (oldStatus !== "Completed") await trip.save();
+      return res
+        .status(200)
+        .json({ message: "Trip completed. Tracking stopped." });
     }
 
-    // 📍 SAVE LOCATION
+    // 📍 LOCATION UPDATE
     trip.liveLocation = { lat, lng };
+
+    if (!trip.locationHistory) {
+      trip.locationHistory = [];
+    }
+
     trip.locationHistory.push({
       lat,
       lng,
       timestamp: new Date(),
     });
 
+    // ✅ CRITICAL: Save the status and location changes to DB
     await trip.save();
 
-    // 📡 SOCKET
+    // 📡 SOCKET LIVE LOCATION
     const io = req.app.get("io");
     if (io) {
       io.to(tripId).emit("LIVE_LOCATION_UPDATE", {
@@ -522,47 +739,24 @@ exports.trackLocation = async (req, res) => {
       });
     }
 
-    // ⚠ ALERTS
+    // ⚠ ALERTS (Pass the updated trip object)
     try {
       await checkAlerts(trip);
     } catch (err) {
       console.error("Alert error:", err);
     }
 
+    // 👤 CONTACTS & SHARING
     const travelerName = trip.traveler?.name || "Traveler";
     const primaryEmail = trip.traveler?.email;
     const contactDetails = trip.contactDetails || {};
+
     const phoneNumbers = getEmergencyNumbers(contactDetails);
     const emailAddresses = getEmergencyEmails(contactDetails);
     const validEmails = emailAddresses.filter(Boolean);
 
-    // if (trip.status === "Active") {
-    //   const googleMapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
-
-    //   // await sendLocationSMS(phoneNumbers, travelerName, googleMapsUrl, trip.tripId);
-
-    //   if (
-    //     !trip.lastLocationEmailTime ||
-    //     Date.now() - trip.lastLocationEmailTime > 900000
-    //   ) {
-    //     await Promise.all([
-    //       primaryEmail &&
-    //         sendLocationEmail(
-    //           primaryEmail,
-    //           travelerName,
-    //           googleMapsUrl,
-    //           trip.tripId,
-    //         ),
-    //       ...emailAddresses.map((email) =>
-    //         sendLocationEmail(email, travelerName, googleMapsUrl, trip.tripId),
-    //       ),
-    //     ]);
-
-    //     trip.lastLocationEmailTime = Date.now();
-    //     await trip.save();
-    //   }
-    // }
-
+    // 📩 SHARE TRACKING LINK
+    // Now this works even if the trip was "Pending" a second ago!
     if (trip.status === "Active" && !trip.locationShared) {
       const updated = await TripModel.findOneAndUpdate(
         { _id: trip._id, locationShared: false },
@@ -572,7 +766,6 @@ exports.trackLocation = async (req, res) => {
 
       if (updated) {
         const trackingLink = `${serverUrl}/track/${trip.tripId}`;
-
         await sendLocationSMS(
           phoneNumbers,
           travelerName,
@@ -595,11 +788,11 @@ exports.trackLocation = async (req, res) => {
       }
     }
 
-    // 🌦 WEATHER (async)
     getWeatherData(lat, lng).catch(() => {});
 
     return res.status(200).json({
-      message: "Location stored & broadcasted",
+      message: "Location stored & status updated",
+      currentStatus: trip.status,
     });
   } catch (error) {
     console.error("Track Location Error:", error);
@@ -608,70 +801,79 @@ exports.trackLocation = async (req, res) => {
 };
 
 exports.getActiveTrip = async (req, res) => {
-  const trips = await TripModel.find({ userId: req.user._id });
+  try {
+    // 1. Fetch all trips that aren't finalized
+    const trips = await TripModel.find({
+      userId: req.user._id,
+      status: { $nin: ["Cancelled", "Completed"] },
+    });
 
-  let activeTrip = null;
+    let activeTrip = null;
 
-  for (let trip of trips) {
-    const start = combineDateAndTime(trip.startDate, trip.startTime);
-    const end = combineDateAndTime(trip.endDate, trip.endTime);
+    for (let trip of trips) {
+      // 🚨 Emergency trip is priority 1: always return immediately
+      if (trip.status === "Emergency") {
+        activeTrip = trip;
+        break;
+      }
 
-    if (!["Cancelled", "Emergency", "Completed"].includes(trip.status)) {
-      const status = calculateStatus(start, end);
+      // 🔄 RECALCULATE STATUS (The "On-Demand" Fix)
+      // Check if current time in IST means this trip should change state
+      const oldStatus = trip.status;
+      const computedStatus = updateTripStatus(trip);
 
-      if (trip.status !== status) {
-        trip.status = status;
-        await trip.save();
+      if (oldStatus !== computedStatus) {
+        trip.status = computedStatus;
+        // Update the database so other controllers see the new status
+        const result = await TripModel.updateOne(
+          { _id: trip._id },
+          { $set: { status: computedStatus } },
+        );
+
+        console.log("🧠 UPDATE RESULT:", result);
+        // Optional: Emit socket if status changed to keep UI in sync
+        const io = req.app.get("io");
+        if (io) {
+          io.to(trip.tripId).emit("TRIP_STATUS_UPDATED", trip);
+        }
+      }
+
+      // 🎯 Pick the first trip that is now officially "Active"
+      if (trip.status === "Active") {
+        activeTrip = trip;
+        break;
       }
     }
 
-    if (["Active", "Emergency"].includes(trip.status)) {
-      activeTrip = trip;
-      break;
+    if (!activeTrip) {
+      return res.status(200).json({
+        message: "No active trip",
+        trip: null,
+      });
     }
-  }
 
-  if (!activeTrip) {
-    return res.status(204).json({ message: "No active trip" });
+    // 2. Return the active/emergency trip details
+    return res.json({
+      tripId: activeTrip.tripId,
+      from: {
+        lat: activeTrip.liveLocation?.lat || activeTrip.from?.lat,
+        lng: activeTrip.liveLocation?.lng || activeTrip.from?.lng,
+        name: activeTrip.from?.name || "Start Location",
+      },
+      to: {
+        lat: activeTrip.to?.lat,
+        lng: activeTrip.to?.lng,
+        name: activeTrip.to?.name || "Destination",
+      },
+      liveLocation: activeTrip.liveLocation || null,
+      status: activeTrip.status,
+      sosPlaces: activeTrip.sosPlaces || [],
+      sosLocation: activeTrip.sosLocation || null,
+    });
+  } catch (err) {
+    console.error("getActiveTrip Error:", err);
+    res.status(500).json({ message: "Server error" });
   }
-
-  // res.json({
-  //   tripId: activeTrip.tripId,
-  //   start: activeTrip.liveLocation || activeTrip.from,
-  //   end: activeTrip.to,
-  //   status: activeTrip.status,
-  // });
-  res.json({
-    tripId: activeTrip.tripId,
-    from: {
-      lat: activeTrip.liveLocation?.lat || activeTrip.from.lat,
-      lng: activeTrip.liveLocation?.lng || activeTrip.from.lng,
-    },
-    to: {
-      lat: activeTrip.to.lat,
-      lng: activeTrip.to.lng,
-    },
-    liveLocation: activeTrip.liveLocation || null,
-    status: activeTrip.status,
-    sosPlaces: activeTrip.sosPlaces || [],
-    sosLocation: activeTrip.sosLocation || null,
-    liveLocation: activeTrip.liveLocation || null,
-  });
-  // res.json({
-  //   tripId: activeTrip.tripId,
-  //   start: {
-  //     lat: activeTrip.liveLocation?.lat || activeTrip.from.lat,
-  //     lng: activeTrip.liveLocation?.lng || activeTrip.from.lng,
-  //   },
-  //   end: {
-  //     lat: activeTrip.to.lat,
-  //     lng: activeTrip.to.lng,
-  //   },
-  //   status: activeTrip.status,
-  //   sosPlaces: activeTrip.sosPlaces || [],
-  //   sosLocation: activeTrip.sosLocation || null,
-  //   liveLocation: activeTrip.liveLocation || null,
-  // });
 };
 
 exports.getTripById = async (req, res) => {
@@ -682,39 +884,134 @@ exports.getTripById = async (req, res) => {
       return res.status(404).json({ error: "Trip not found" });
     }
 
-    if (trip.sosTriggered) {
-      trip.status = "Emergency";
-      await trip.save();
-    }
-    // ✅ Don't override cancelled
-    // if (trip.status !== "Cancelled")
-    if (!["Cancelled", "Emergency", "Completed"].includes(trip.status)) {
-      const newStatus = updateTripStatus(trip);
+    // 🔄 RECALCULATE STATUS ON-DEMAND
+    // This ensures emergency contacts see the real-time status (Active/Completed)
+    // even if the traveler hasn't opened their app lately.
+    const oldStatus = trip.status;
+    const computedStatus = updateTripStatus(trip);
 
-      if (trip.status !== newStatus) {
-        trip.status = newStatus;
-        await trip.save();
+    if (
+      !["Emergency", "Cancelled"].includes(oldStatus) &&
+      oldStatus !== computedStatus
+    ) {
+      trip.status = computedStatus;
+
+      // Persist the change so the database stays accurate
+      // await TripModel.updateOne(
+      //   { _id: trip._id },
+      //   { $set: { status: computedStatus } }
+      // );
+
+      const result = await TripModel.updateOne(
+        { _id: trip._id },
+        { $set: { status: computedStatus } },
+      );
+
+      console.log("🧠 UPDATE RESULT:", result);
+
+      // Notify any active listeners (like the traveler or other contacts) via Socket
+      const io = req.app.get("io");
+      if (io) {
+        io.to(trip.tripId).emit("TRIP_STATUS_UPDATED", trip);
       }
     }
 
-    res.status(200).json({
+    // Return the response with the most up-to-date status
+    return res.json({
       start: {
         lat: trip.liveLocation?.lat || trip.from?.lat,
         lng: trip.liveLocation?.lng || trip.from?.lng,
-        name: trip.from?.name || "Start Location", // ✅ always send name
+        name: trip.from?.name || "Start Location",
       },
       end: {
         lat: trip.to?.lat,
         lng: trip.to?.lng,
-        name: trip.to?.name || "Destination", // ✅ always send name
+        name: trip.to?.name || "Destination",
       },
       history: trip.locationHistory || [],
       status: trip.status,
+      // Useful for tracking views:
+      liveLocation: trip.liveLocation || null,
+      lastUpdated: new Date(),
     });
-  } catch (error) {
-    res.status(400).json({ error: error.message });
+  } catch (err) {
+    console.error("getTripById Error:", err);
+    return res.status(500).json({ error: err.message });
   }
 };
+
+// exports.getTripById = async (req, res) => {
+//   try {
+//     const trip = await TripModel.findOne({ tripId: req.params.tripId });
+
+//     if (!trip) {
+//       return res.status(404).json({ error: "Trip not found" });
+//     }
+
+//     let currentStatus = trip.status;
+
+//     // 🚨 SOS override (highest priority)
+//     if (trip.sosTriggered) {
+//       currentStatus = "Emergency";
+
+//       if (trip.status !== "Emergency") {
+//         await TripModel.updateOne(
+//           { _id: trip._id },
+//           { $set: { status: "Emergency" } }
+//         );
+
+//         // Emit status update
+//         const io = req.app.get("io");
+//         if (io) {
+//           io.to(trip.tripId).emit("TRIP_STATUS_UPDATED", {
+//             ...trip.toObject(),
+//             status: "Emergency",
+//           });
+//         }
+//       }
+//     }
+
+//     // 🔄 Normal status update
+//     else if (!["Cancelled", "Emergency", "Completed"].includes(trip.status)) {
+//       const newStatus = updateTripStatus(trip);
+
+//       if (trip.status !== newStatus) {
+//         currentStatus = newStatus;
+
+//         await TripModel.updateOne(
+//           { _id: trip._id },
+//           { $set: { status: newStatus } }
+//         );
+
+//         // Emit status update
+//         const io = req.app.get("io");
+//         if (io) {
+//           io.to(trip.tripId).emit("TRIP_STATUS_UPDATED", {
+//             ...trip.toObject(),
+//             status: newStatus,
+//           });
+//         }
+//       }
+//     }
+
+//     return res.status(200).json({
+//       start: {
+//         lat: trip.liveLocation?.lat || trip.from?.lat,
+//         lng: trip.liveLocation?.lng || trip.from?.lng,
+//         name: trip.from?.name || "Start Location",
+//       },
+//       end: {
+//         lat: trip.to?.lat,
+//         lng: trip.to?.lng,
+//         name: trip.to?.name || "Destination",
+//       },
+//       history: trip.locationHistory || [],
+//       status: currentStatus,
+//     });
+//   } catch (error) {
+//     return res.status(400).json({ error: error.message });
+//   }
+// };
 
 // controllers/tripController.js
 exports.deleteTrip = async (req, res) => {
@@ -976,6 +1273,8 @@ exports.triggerEmergency = async (req, res) => {
         timestamp: updatedTrip.emergencyTriggeredAt,
         nearbyPlaces: formattedPlaces,
       });
+
+      io.to(tripId).emit("TRIP_STATUS_UPDATED", updatedTrip);
     }
 
     const contactDetails = updatedTrip.contactDetails || {};
@@ -1159,8 +1458,12 @@ exports.checkTrafficAndSendAlert = async (req, res) => {
       //   `
       // );
 
-      trip.lastTrafficAlert = trafficStatus;
-      await trip.save();
+      // trip.lastTrafficAlert = trafficStatus;
+      // await trip.save();
+      await TripModel.updateOne(
+        { _id: trip._id },
+        { $set: { lastTrafficAlert: trafficStatus } },
+      );
     }
 
     return res.json({
@@ -1294,9 +1597,7 @@ exports.touristPlaces = async (req, res) => {
 
     // ✅ If already exists → return filtered
     if (existingDoc) {
-      const filtered = existingDoc.touristPlaces.filter(
-        (p) => p.type === type
-      );
+      const filtered = existingDoc.touristPlaces.filter((p) => p.type === type);
 
       if (filtered.length > 0) {
         return res.json({
@@ -1320,8 +1621,8 @@ exports.touristPlaces = async (req, res) => {
       const newPlaces = places.filter(
         (p) =>
           !existingDoc.touristPlaces.some(
-            (ep) => ep.name === p.name && ep.type === type
-          )
+            (ep) => ep.name === p.name && ep.type === type,
+          ),
       );
 
       existingDoc.touristPlaces.push(
@@ -1333,7 +1634,7 @@ exports.touristPlaces = async (req, res) => {
           distance: Number(p.distance),
           sourceLat: numLat,
           sourceLng: numLng,
-        }))
+        })),
       );
 
       updatedDoc = await existingDoc.save();
@@ -1354,9 +1655,7 @@ exports.touristPlaces = async (req, res) => {
       });
     }
 
-    const filtered = updatedDoc.touristPlaces.filter(
-      (p) => p.type === type
-    );
+    const filtered = updatedDoc.touristPlaces.filter((p) => p.type === type);
 
     res.json({
       message: "Fetched & saved",

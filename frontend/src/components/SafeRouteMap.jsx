@@ -11,7 +11,7 @@ const DEFAULT_LOCATION = [78.4867, 17.385];
 const SafeRouteMap = ({ trip, sosData, sosPlaces, triggerSOSView }) => {
   const mapContainer = useRef(null);
   const map = useRef(null);
-  const serverUrl = "http://localhost:8000" || import.meta.env.VITE_SERVER_URL;
+  const serverUrl = import.meta.env.VITE_SERVER_URL || "http://localhost:8000";
 
   const userMarker = useRef(null);
   const startMarker = useRef(null);
@@ -243,9 +243,11 @@ const SafeRouteMap = ({ trip, sosData, sosPlaces, triggerSOSView }) => {
       return;
     }
 
-    if (trip.status === "Emergency" && triggerSOSView) {
+    const tripStatus = String(trip.status || "").toLowerCase();
+
+    if (tripStatus === "emergency" && triggerSOSView) {
       setViewMode("emergency");
-    } else if (trip.status === "Active") {
+    } else if (tripStatus === "active") {
       setViewMode("active");
     } else {
       setViewMode("default");

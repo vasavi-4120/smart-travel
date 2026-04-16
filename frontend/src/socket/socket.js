@@ -2,7 +2,7 @@ import { io } from "socket.io-client";
 
 // let socket;
 
-const SERVER_URL ="http://localhost:8000"  ||  import.meta.env.VITE_SERVER_URL;
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:8000";
 
 const socket = io(SERVER_URL, {
   withCredentials: true,

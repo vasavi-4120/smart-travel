@@ -15,7 +15,7 @@ function Makeyourtrip() {
   const [loading, setLoading] = useState(false);
   const [validationStatus, setValidationStatus] = useState("");
   const [errors, setErrors] = useState({});
-  const serverUrl = "http://localhost:8000" || import.meta.env.VITE_SERVER_URL;
+  const serverUrl =  import.meta.env.VITE_SERVER_URL || "http://localhost:8000" ;
 
   const [formData, setFormData] = useState({
     traveler: {
@@ -67,7 +67,7 @@ function Makeyourtrip() {
 
   const fetchCoordinates = async (placeName) => {
     try {
-      const res = await axios.get("http://localhost:8000/api/trips/geocode", {
+      const res = await axios.get(`${serverUrl}/api/trips/geocode`, {
         params: { place: placeName },
         withCredentials: true,
       });

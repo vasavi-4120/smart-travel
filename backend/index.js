@@ -1,5 +1,4 @@
 require("dotenv").config();
-// require("./cron/completeTrips");
 
 const express = require("express");
 const app = express();
@@ -24,11 +23,11 @@ const uri = process.env.MONGO_URL;
 // ================= SOCKET.IO =================
 const { Server } = require("socket.io");
 
-const serverUrl = "http://localhost:5173" || process.env.SERVER_URL;
+const serverUrl = process.env.SERVER_URL || "http://localhost:5173";
 
 const io = new Server(server, {
   cors: {
-    origin: serverUrl,
+    origin: [serverUrl, "http://localhost:5173", "http://localhost:5174"],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
   },
@@ -64,7 +63,7 @@ app.set("trust proxy", 1);
 // ================= MIDDLEWARE =================
 app.use(
   cors({
-    origin: serverUrl,
+    origin: [serverUrl, "http://localhost:5173", "http://localhost:5174"],
     credentials: true,
   })
 );
@@ -229,6 +228,10 @@ mongoose
     server.listen(PORT, (req,res) => {
       console.log(`🚀 Server running on port ${PORT}`);
     });
+
+    // start cron only after MongoDB is connected
+    require("./cron/completeTrips.js")(io);
+    console.log("✅ Trip status cron job enabled");
   })
   .catch((err) => console.error(err));
 

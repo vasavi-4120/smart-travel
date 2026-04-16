@@ -77,7 +77,8 @@ const Dashboard = () => {
   const [userLocation, setUserLocation] = useState(null);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-  const serverUrl =  "http://localhost:8000" || import.meta.env.VITE_SERVER_URL;
+  // const serverUrl =  "http://localhost:8000" || import.meta.env.VITE_SERVER_URL;
+  const serverUrl = import.meta.env.VITE_SERVER_URL || "http://localhost:8000";
   const navigate = useNavigate();
   const [activeTrip, setActiveTrip] = useState(null);
   const [destination, setDestination] = useState(null);
@@ -179,61 +180,174 @@ const Dashboard = () => {
     "Keep valuables secure",
   ];
 
-  useEffect(() => {
+  // const fetchTrips = async () => {
+  //   if (!userData) return;
+
+  //   try {
+  //     const res = await axios.get(`${serverUrl}/api/trips/myTrip`, {
+  //       withCredentials: true,
+  //     });
+  //     setTrips(res.data); // Keep the table updated
+
+  //     const sortedTrips = res.data.sort(
+  //       (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
+  //     );
+
+  //     // let active = sortedTrips.find((trip) => trip.status === "Active");
+
+  //     // if (!active) {
+  //     //   active = sortedTrips.find((trip) => trip.status === "Emergency");
+  //     // }
+
+  //     // let active = sortedTrips.find((trip) =>
+  //     //   ["Active", "Emergency"].includes(trip.status),
+  //     // );
+
+  //     if (active) {
+  //       // setActiveTrip(active);
+  //       setActiveTrip((prev) => prev || active);
+  //       setLiveLocation(active.liveLocation);
+  //       setHistory(active.locationHistory || []);
+  //       setDestination(active.to);
+  //     } else {
+  //       // Only clear if there truly is no active/emergency trip
+  //       if (!active && activeTrip) {
+  //         setActiveTrip(null);
+  //       }
+  //       setLiveLocation(null);
+  //       setDestination(null);
+  //       setRouteCoords([]);
+
+  //       setSosData(null);
+  //       setSosPlaces([]);
+  //     }
+  //   } catch (err) {
+  //     if (err.response?.status !== 401) {
+  //       console.log(err);
+  //     }
+  //   }
+  // };
+
+  const fetchTrips = async () => {
     if (!userData) return;
 
-    const fetchTrip = async () => {
+    try {
+      const res = await axios.get(`${serverUrl}/api/trips/myTrip`, {
+        withCredentials: true,
+      });
+
+      const normalizeStatus = (status) => {
+        const lower = String(status || "").toLowerCase();
+        return lower.charAt(0).toUpperCase() + lower.slice(1);
+      };
+
+      const normalizedTrips = res.data.map((trip) => ({
+        ...trip,
+        status: normalizeStatus(trip.status),
+      }));
+
+      setTrips(normalizedTrips);
+
+      const sortedTrips = normalizedTrips.sort(
+        (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
+      );
+
+      // ✅ FIX: define active using case-insensitive comparison
+      const active = sortedTrips.find((trip) =>
+        ["active", "emergency"].includes(String(trip.status || "").toLowerCase()),
+      );
+
+      if (active) {
+        // ✅ prevent unnecessary override
+        // setActiveTrip((prev) => prev || active);
+        setActiveTrip(active);
+        setLiveLocation(active.liveLocation);
+        setHistory(active.locationHistory || []);
+        setDestination(active.to);
+      } else {
+        if (activeTrip) {
+          setActiveTrip(null);
+        }
+
+        setLiveLocation(null);
+        setDestination(null);
+        setRouteCoords([]);
+        setSosData(null);
+        setSosPlaces([]);
+      }
+    } catch (err) {
+      if (err.response?.status !== 401) {
+        console.log(err);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const fetchTrips = async () => {
       try {
         const res = await axios.get(`${serverUrl}/api/trips/myTrip`, {
           withCredentials: true,
         });
-        setTrips(res.data); // Keep the table updated
-
-        const sortedTrips = res.data.sort(
-          (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
-        );
-
-        let active = sortedTrips.find((trip) => trip.status === "Active");
-
-        if (!active) {
-          active = sortedTrips.find((trip) => trip.status === "Emergency");
-        }
-
-        if (active) {
-          setActiveTrip(active);
-          setLiveLocation(active.liveLocation);
-          setHistory(active.locationHistory || []);
-          setDestination(active.to);
-          // if (active.sosTriggered) {
-          //   setSosData(active.sosLocation);
-          //   setSosPlaces(active.sosPlaces || []);
-          // }
-        } else {
-          // Only clear if there truly is no active/emergency trip
-          setActiveTrip(null);
-          setLiveLocation(null);
-          setDestination(null);
-          setRouteCoords([]);
-
-          setSosData(null);
-          setSosPlaces([]);
-        }
+        setTrips(res.data);
       } catch (err) {
-        if (err.response?.status !== 401) {
-          console.log(err);
-        }
+        console.error(err);
       }
     };
-    fetchTrip();
-    intervalRef.current = setInterval(fetchTrip, 10000);
 
-    return () => {
-      clearInterval(intervalRef.current);
-    };
+    if (userData)
+      socket.on("TRIP_STATUS_UPDATED", () => {
+        fetchTrips(); // ✅ sync from backend
+      });
   }, [userData]);
 
   const lastSentTimeRef = useRef(0);
+  // ✅ 1. Combined Initial Fetch and Socket Listeners
+  useEffect(() => {
+    const loadData = async () => {
+      await fetchTrips(); // Initial load when dashboard opens
+    };
 
+    if (userData) {
+      loadData();
+
+      // Setup Socket Listeners
+      if (!socket.connected) socket.connect();
+
+      const handleStatusSync = () => {
+        console.log("Socket: Trip status changed, refreshing...");
+        fetchTrips();
+      };
+
+      socket.on("TRIP_STATUS_UPDATED", handleStatusSync);
+      socket.on("TRIP_STATUS_REFRESH", handleStatusSync);
+
+      return () => {
+        socket.off("TRIP_STATUS_UPDATED", handleStatusSync);
+        socket.off("TRIP_STATUS_REFRESH", handleStatusSync);
+      };
+    }
+  }, [userData]); // Only run when user logs in
+
+  // ✅ 2. Live Location Listener (Keep this separate)
+  useEffect(() => {
+    if (!userData) return;
+
+    const handleLiveLocation = (data) => {
+      setActiveTrip((prev) => {
+        // Only update if the socket data matches our current active trip
+        if (prev && prev.tripId === data.tripId) {
+          return {
+            ...prev,
+            liveLocation: { lat: data.lat, lng: data.lng },
+          };
+        }
+        return prev;
+      });
+    };
+
+    socket.on("LIVE_LOCATION_UPDATE", handleLiveLocation);
+    return () => socket.off("LIVE_LOCATION_UPDATE", handleLiveLocation);
+  }, [userData]);
   // for location tracking
   useEffect(() => {
     if (!activeTrip) return;
@@ -261,11 +375,11 @@ const Dashboard = () => {
               },
               { withCredentials: true },
             );
-            socket.emit("LIVE_LOCATION_UPDATE", {
-              tripId: activeTrip.tripId,
-              lat: position.coords.latitude,
-              lng: position.coords.longitude,
-            });
+            // socket.emit("LIVE_LOCATION_UPDATE", {
+            //   tripId: activeTrip.tripId,
+            //   lat: position.coords.latitude,
+            //   lng: position.coords.longitude,
+            // });
             console.log("Geolocation triggered");
 
             // console.log("Sending location:", {
@@ -306,109 +420,196 @@ const Dashboard = () => {
   }, []);
 
   useEffect(() => {
-    setShowSOSView(false);
+    if (!activeTrip?.tripId) return;
+
+    socket.emit("joinTrip", activeTrip.tripId);
   }, [activeTrip?.tripId]);
 
   useEffect(() => {
-    if (!userData || !activeTrip) return;
+    setShowSOSView(false);
+  }, [activeTrip?.tripId]);
 
-    // ✅ CONNECT socket if not already connected
+  // useEffect(() => {
+  //   if (!userData || !activeTrip) return;
+
+  //   // ✅ CONNECT socket if not already connected
+  //   if (!socket.connected) socket.connect();
+
+  //   // ✅ JOIN ROOM once connected
+  //   useEffect(() => {
+  //     if (!activeTrip?.tripId) return;
+
+  //     if (!socket.connected) socket.connect();
+
+  //     socket.emit("joinTrip", activeTrip.tripId);
+  //   }, [activeTrip?.tripId]);
+
+  //   // ===============================
+  //   // 📍 LIVE LOCATION FROM OTHERS
+  //   // ===============================
+  //   // const handleLiveLocation = (data) => {
+  //   //   otherUsers.current[data.socketId] = { lat: data.lat, lng: data.lng };
+
+  //   //   setEmergencyAlerts((prev) => [
+  //   //     ...prev.slice(-4),
+  //   //     {
+  //   //       id: Date.now(),
+  //   //       message: `User moving: ${data.lat}, ${data.lng}`,
+  //   //       type: "info",
+  //   //       time: new Date().toLocaleTimeString(),
+  //   //     },
+  //   //   ]);
+  //   // };
+  //   const handleLiveLocation = (data) => {
+  //     // ✅ update active trip live location
+  //     setActiveTrip((prev) =>
+  //       prev
+  //         ? {
+  //             ...prev,
+  //             liveLocation: { lat: data.lat, lng: data.lng },
+  //           }
+  //         : prev,
+  //     );
+
+  //     // optional alerts
+  //     setEmergencyAlerts((prev) => [
+  //       ...prev.slice(-4),
+  //       {
+  //         id: Date.now(),
+  //         message: `User moving: ${data.lat}, ${data.lng}`,
+  //         type: "info",
+  //         time: new Date().toLocaleTimeString(),
+  //       },
+  //     ]);
+  //   };
+
+  //   socket.on("LIVE_LOCATION_UPDATE", handleLiveLocation);
+
+  //   // ===============================
+  //   // 🚨 SOS REAL-TIME ALERT
+  //   // ===============================
+  //   const handleSOS = (data) => {
+  //     console.log("🚨 SOS RECEIVED:", data);
+  //     setEmergencyAlerts((prev) => [
+  //       ...prev,
+  //       {
+  //         id: Date.now(),
+  //         message: `🚨 Emergency by ${data.traveler?.name}`,
+  //         type: "emergency",
+  //         time: new Date().toLocaleTimeString(),
+  //       },
+  //     ]);
+  //     alert("🚨 Emergency Alert Received!");
+  //   };
+
+  //   socket.on("SOS_TRIGGERED", handleSOS);
+  //   socket.on("TRIP_STATUS_REFRESH", fetchTrips);
+
+  //   // const handleStatusUpdate = (updatedTrip) => {
+  //   //   console.log("🔄 Trip Status Sync:", updatedTrip.status);
+
+  //   //   setTrips((prev) =>
+  //   //     prev.map((t) =>
+  //   //       t.tripId === updatedTrip.tripId ? { ...t, ...updatedTrip } : t,
+  //   //     ),
+  //   //   );
+
+  //   //   setActiveTrip((prev) => {
+  //   //     if (!prev) return prev;
+  //   //     if (prev.tripId !== updatedTrip.tripId) return prev;
+  //   //     return ["Completed", "Cancelled"].includes(updatedTrip.status)
+  //   //       ? null
+  //   //       : { ...prev, ...updatedTrip };
+  //   //   });
+
+  //   //   if (
+  //   //     updatedTrip.status === "Active" ||
+  //   //     updatedTrip.status === "Emergency"
+  //   //   ) {
+  //   //     setActiveTrip(updatedTrip);
+  //   //   }
+  //   // };
+
+  //   const handleStatusUpdate = (updatedTrip) => {
+  //     console.log("🔄 Trip Status Sync:", updatedTrip.status);
+
+  //     // update trips table
+  //     setTrips((prev) =>
+  //       prev.map((t) => (t.tripId === updatedTrip.tripId ? updatedTrip : t)),
+  //     );
+
+  //     // update activeTrip properly
+  //     if (["Active", "Emergency"].includes(updatedTrip.status)) {
+  //       setActiveTrip(updatedTrip);
+  //     } else {
+  //       setActiveTrip(null);
+  //     }
+  //   };
+
+  //   socket.on("TRIP_STATUS_UPDATED", handleStatusUpdate);
+
+  //   return () => {
+  //     socket.off("LIVE_LOCATION_UPDATE", handleLiveLocation);
+  //     socket.off("SOS_TRIGGERED", handleSOS);
+  //     socket.off("TRIP_STATUS_REFRESH", fetchTrips);
+  //     socket.off("TRIP_STATUS_UPDATED", handleStatusUpdate);
+  //   };
+  // }, [userData, activeTrip?.tripId]);
+
+  // ✅ Effect 1: socket connection + listeners
+  useEffect(() => {
+    // if (!userData || !activeTrip) return;
+    if (!userData) return;
+
     if (!socket.connected) socket.connect();
 
-    // ✅ JOIN ROOM once connected
-    socket.emit("joinTrip", activeTrip.tripId);
-
-    // ===============================
-    // 📍 LIVE LOCATION FROM OTHERS
-    // ===============================
-    // const handleLiveLocation = (data) => {
-    //   otherUsers.current[data.socketId] = { lat: data.lat, lng: data.lng };
-
-    //   setEmergencyAlerts((prev) => [
-    //     ...prev.slice(-4),
-    //     {
-    //       id: Date.now(),
-    //       message: `User moving: ${data.lat}, ${data.lng}`,
-    //       type: "info",
-    //       time: new Date().toLocaleTimeString(),
-    //     },
-    //   ]);
-    // };
     const handleLiveLocation = (data) => {
-      // ✅ update active trip live location
       setActiveTrip((prev) =>
         prev
-          ? {
-              ...prev,
-              liveLocation: { lat: data.lat, lng: data.lng },
-            }
+          ? { ...prev, liveLocation: { lat: data.lat, lng: data.lng } }
           : prev,
       );
-
-      // optional alerts
-      setEmergencyAlerts((prev) => [
-        ...prev.slice(-4),
-        {
-          id: Date.now(),
-          message: `User moving: ${data.lat}, ${data.lng}`,
-          type: "info",
-          time: new Date().toLocaleTimeString(),
-        },
-      ]);
     };
 
-    socket.on("LIVE_LOCATION_UPDATE", handleLiveLocation);
+    // const handleStatusUpdate = (updatedTrip) => {
+    //   setTrips((prev) =>
+    //     prev.map((t) =>
+    //       t.tripId === updatedTrip.tripId ? updatedTrip : t
+    //     )
+    //   );
 
-    // ===============================
-    // 🚨 SOS REAL-TIME ALERT
-    // ===============================
-    const handleSOS = (data) => {
-      console.log("🚨 SOS RECEIVED:", data);
-      setEmergencyAlerts((prev) => [
-        ...prev,
-        {
-          id: Date.now(),
-          message: `🚨 Emergency by ${data.traveler?.name}`,
-          type: "emergency",
-          time: new Date().toLocaleTimeString(),
-        },
-      ]);
-      alert("🚨 Emergency Alert Received!");
-    };
-
-    socket.on("SOS_TRIGGERED", handleSOS);
+    //   if (["Active", "Emergency"].includes(updatedTrip.status)) {
+    //     setActiveTrip(updatedTrip);
+    //   } else {
+    //     setActiveTrip(null);
+    //   }
+    // };
 
     const handleStatusUpdate = (updatedTrip) => {
-      console.log("🔄 Trip Status Sync:", updatedTrip.status);
-
       setTrips((prev) =>
         prev.map((t) => (t.tripId === updatedTrip.tripId ? updatedTrip : t)),
       );
 
-      // If this is the current active trip, or just became active
-      if (
-        updatedTrip.status === "Active" ||
-        updatedTrip.status === "Emergency"
-      ) {
-        setActiveTrip(updatedTrip);
-      } else if (
-        updatedTrip.status === "Completed" ||
-        updatedTrip.status === "Cancelled"
-      ) {
-        if (activeTrip?.tripId === updatedTrip.tripId) {
-          setActiveTrip(null);
-        }
-      }
+      setActiveTrip((prev) =>
+        prev?.tripId === updatedTrip.tripId ? updatedTrip : prev,
+      );
     };
 
+    socket.on("LIVE_LOCATION_UPDATE", handleLiveLocation);
     socket.on("TRIP_STATUS_UPDATED", handleStatusUpdate);
 
     return () => {
       socket.off("LIVE_LOCATION_UPDATE", handleLiveLocation);
-      socket.off("SOS_TRIGGERED", handleSOS);
       socket.off("TRIP_STATUS_UPDATED", handleStatusUpdate);
     };
-  }, [userData, activeTrip?.tripId]);
+  }, [userData, activeTrip]);
+
+  // ✅ Effect 2: join room
+  useEffect(() => {
+    if (!activeTrip?.tripId) return;
+
+    socket.emit("joinTrip", activeTrip.tripId);
+  }, [activeTrip?.tripId]);
 
   const cancelTrip = async (trip) => {
     try {
@@ -521,10 +722,9 @@ const Dashboard = () => {
 
   const handleShowSOSPlaces = async (tripId) => {
     try {
-      const res = await axios.get(
-        `${serverUrl}/api/trips/sos/${tripId}`,
-        { withCredentials: true },
-      );
+      const res = await axios.get(`${serverUrl}/api/trips/sos/${tripId}`, {
+        withCredentials: true,
+      });
 
       const { sosLocation, sosPlaces } = res.data;
 
@@ -556,41 +756,41 @@ const Dashboard = () => {
   };
 
   const handleSendPlaces = async (type) => {
-  try {
-    setLoadingType(type);
+    try {
+      setLoadingType(type);
 
-    // ❌ OLD (live location)
-    // if (!activeTrip?.liveLocation?.lat || !activeTrip?.liveLocation?.lng)
+      // ❌ OLD (live location)
+      // if (!activeTrip?.liveLocation?.lat || !activeTrip?.liveLocation?.lng)
 
-    // ✅ NEW (destination)
-    if (!activeTrip?.to?.lat || !activeTrip?.to?.lng) {
-      alert("❌ Destination not available");
-      return;
+      // ✅ NEW (destination)
+      if (!activeTrip?.to?.lat || !activeTrip?.to?.lng) {
+        alert("❌ Destination not available");
+        return;
+      }
+
+      const { lat, lng } = activeTrip.to;
+
+      console.log("📍 Sending destination:", lat, lng);
+
+      const res = await axios.post(
+        `${serverUrl}/api/trips/send-preferred-places`,
+        {
+          lat,
+          lng,
+          type,
+          tripId: activeTrip.tripId,
+        },
+        { withCredentials: true },
+      );
+
+      alert(res.data.message);
+    } catch (err) {
+      console.error(err);
+      alert("❌ Failed to send places");
+    } finally {
+      setLoadingType(null);
     }
-
-    const { lat, lng } = activeTrip.to;
-
-    console.log("📍 Sending destination:", lat, lng);
-
-    const res = await axios.post(
-      `${serverUrl}/api/trips/send-preferred-places`,
-      {
-        lat,
-        lng,
-        type,
-        tripId: activeTrip.tripId,
-      },
-      { withCredentials: true }
-    );
-
-    alert(res.data.message);
-  } catch (err) {
-    console.error(err);
-    alert("❌ Failed to send places");
-  } finally {
-    setLoadingType(null);
-  }
-};
+  };
 
   const getPriorityColor = (priority) => {
     switch (priority) {
@@ -606,16 +806,16 @@ const Dashboard = () => {
   };
 
   const getStatusChipColor = (status) => {
-    switch (status) {
-      case "Emergency":
+    switch (String(status || "").toLowerCase()) {
+      case "emergency":
         return "error";
-      case "Active":
+      case "active":
         return "primary";
-      case "Completed":
+      case "completed":
         return "success";
-      case "Pending":
+      case "pending":
         return "warning";
-      case "Cancelled":
+      case "cancelled":
         return "default";
       default:
         return "default";
@@ -623,14 +823,14 @@ const Dashboard = () => {
   };
 
   const getStatusColor = (status) => {
-    switch (status) {
-      case "Emergency":
+    switch (String(status || "").toLowerCase()) {
+      case "emergency":
         return "red";
-      case "Cancelled":
+      case "cancelled":
         return "gray";
-      case "Completed":
+      case "completed":
         return "green";
-      case "Active":
+      case "active":
         return "blue";
       default:
         return "orange";
@@ -726,6 +926,7 @@ const Dashboard = () => {
                           }
                         /> */}
                         <Chip
+                          // label={trip.status}
                           label={trip.status}
                           size="small"
                           color={getStatusChipColor(trip.status)}
@@ -875,16 +1076,16 @@ const Dashboard = () => {
               disabled={loadingType === "tourist"}
               onClick={() => handleSendPlaces("tourist")}
             >
-            {loadingType === "tourist" ? "Sending..." : " 🏰 Tourist Places"}
+              {loadingType === "tourist" ? "Sending..." : " 🏰 Tourist Places"}
             </Button>
 
             <Button
               variant="contained"
               color="info"
-               disabled={loadingType === "museum"}
+              disabled={loadingType === "museum"}
               onClick={() => handleSendPlaces("museum")}
             >
-             {loadingType === "museum" ? "Sending..." : " 🏛 Museums"}
+              {loadingType === "museum" ? "Sending..." : " 🏛 Museums"}
             </Button>
 
             <Button

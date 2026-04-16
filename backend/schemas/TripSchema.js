@@ -170,7 +170,7 @@ const TripSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["Pending", "Active", "Completed", "Emergency", "Cancelled"],
+      enum: ["Pending", "Active", "Completed", "Emergency", "Cancelled","active","pending","completed","emergency","cancelled"],
       default: "Pending",
       index: true,
     },
@@ -273,27 +273,27 @@ const TripSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-function combineDateAndTime(date, time) {
-  if (!date || !time) return null;
+// function combineDateAndTime(date, time) {
+//   if (!date || !time) return null;
 
-  const [hours, minutes] = time.split(":");
-  const combined = new Date(date);
+//   const [hours, minutes] = time.split(":");
+//   const combined = new Date(date);
 
-  combined.setHours(parseInt(hours));
-  combined.setMinutes(parseInt(minutes));
-  combined.setSeconds(0);
-  combined.setMilliseconds(0);
+//   combined.setHours(parseInt(hours));
+//   combined.setMinutes(parseInt(minutes));
+//   combined.setSeconds(0);
+//   combined.setMilliseconds(0);
 
-  return combined;
-}
+//   return combined;
+// }
 
-function calculateStatus(start, end) {
-  const now = new Date();
+// function calculateStatus(start, end) {
+//   const now = new Date();
 
-  if (now < start) return "Pending";
-  if (now >= start && now <= end) return "Active";
-  return "Completed";
-}
+//   if (now < start) return "Pending";
+//   if (now >= start && now <= end) return "Active";
+//   return "Completed";
+// }
 
 // TripSchema.pre("save", async function () {
 //   const trip = this;
@@ -324,6 +324,22 @@ function calculateStatus(start, end) {
 //       trip.status = calculateStatus(startDateTime, endDateTime);
 //     }
 //   }
+//   console.log("🔥 STATUS CHANGE DETECTED");
+//   console.log("Trip:", this.tripId);
+//   console.log("New Status:", this.status);
+//   console.trace("📍 Who triggered this?");
+// });
+
+// TripSchema.pre("save", function (next) {
+//   // 🚫 Block status changes from anywhere except cron
+//   if (this.isModified("status") && !this._fromCron) {
+//     console.log("⛔ BLOCKED STATUS CHANGE (non-cron)");
+//     console.trace("WHO TRIED TO CHANGE STATUS");
+
+//     return next(new Error("Status can only be updated by cron"));
+//   }
+
+//   next();
 // });
 
 module.exports = { TripSchema };

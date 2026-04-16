@@ -1,6 +1,9 @@
 const TripModel = require("../model/TripModel");
 
-exports.triggerEmergencySocket = async ({ tripId, latitude, longitude }, io) => {
+exports.triggerEmergencySocket = async (
+  { tripId, latitude, longitude },
+  io,
+) => {
   try {
     const trip = await TripModel.findOne({ tripId });
 
@@ -14,7 +17,13 @@ exports.triggerEmergencySocket = async ({ tripId, latitude, longitude }, io) => 
     await trip.save();
 
     // Emit to all clients connected
-    io.emit("SOS_TRIGGERED", {
+    // io.emit("SOS_TRIGGERED", {
+    //   tripId: trip.tripId,
+    //   traveler: trip.traveler,
+    //   location: trip.sosLocation,
+    //   timestamp: trip.emergencyTriggeredAt,
+    // });
+    io.to(trip.tripId).emit("SOS_TRIGGERED", {
       tripId: trip.tripId,
       traveler: trip.traveler,
       location: trip.sosLocation,
