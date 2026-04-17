@@ -10,28 +10,47 @@ const getDistance = (lat1, lon1, lat2, lon2) => {
 
   const a =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) *
-      Math.cos(toRad(lat2)) *
-      Math.sin(dLon / 2) ** 2;
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
 
   return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 };
 
 // 🎯 TYPE → OSM TAGS
 const typeQueries = {
-  tourist: 'node["tourism"="attraction"]',
-  museum: 'node["tourism"="museum"]',
-  park: 'node["leisure"="park"]',
-  food: 'node["amenity"="restaurant"]',
-  hotel: 'node["tourism"="hotel"]',
+  tourist: `
+    node["tourism"="attraction"];
+    way["tourism"="attraction"];
+    relation["tourism"="attraction"];
+  `,
+  temple: `
+    node["amenity"="place_of_worship"];
+    way["amenity"="place_of_worship"];
+  `,
+  museum: `
+    node["tourism"="museum"];
+    way["tourism"="museum"];
+  `,
+  park: `
+    node["leisure"="park"];
+    way["leisure"="park"];
+  `,
+  restaurant: `
+    node["amenity"="restaurant"];
+    way["amenity"="restaurant"];
+  `,
+  hotel: `
+    node["tourism"="hotel"];
+    way["tourism"="hotel"];
+  `,
 };
 
 // 🎯 TYPE → NOMINATIM SEARCH
 const nominatimKeywords = {
   tourist: "tourist attraction",
+  temple: "hindu temple",
   museum: "museum",
   park: "park",
-  food: "restaurant",
+  restaurant: "restaurant",
   hotel: "hotel",
 };
 
@@ -45,19 +64,26 @@ const getTouristPlaces = async (lat, lng, selectedType = "tourist") => {
     // ============================
     const queryType = typeQueries[selectedType];
 
+    // const query = `
+    //   [out:json][timeout:10];
+    //   (
+    //     ${queryType}(around:3000,${lat},${lng});
+    //   );
+    //   out body;
+    // `;
     const query = `
-      [out:json][timeout:10];
-      (
-        ${queryType}(around:3000,${lat},${lng});
-      );
-      out body;
-    `;
+  [out:json][timeout:15];
+  (
+    ${queryType.replaceAll(";", `(around:3000,${lat},${lng});`)}
+  );
+  out body;
+`;
 
     try {
       const res = await axios.post(
         "https://overpass-api.de/api/interpreter",
         query,
-        { headers: { "Content-Type": "text/plain" }, timeout: 8000 }
+        { headers: { "Content-Type": "text/plain" }, timeout: 8000 },
       );
 
       const elements = res.data.elements;
@@ -72,9 +98,7 @@ const getTouristPlaces = async (lat, lng, selectedType = "tourist") => {
               lat: p.lat,
               lng: p.lon,
               type: selectedType,
-              distance: Number(
-                getDistance(lat, lng, p.lat, p.lon).toFixed(2)
-              ),
+              distance: Number(getDistance(lat, lng, p.lat, p.lon).toFixed(2)),
               mapLink: `https://www.google.com/maps?q=${p.lat},${p.lon}`,
             };
           })
@@ -104,7 +128,7 @@ const getTouristPlaces = async (lat, lng, selectedType = "tourist") => {
         headers: {
           "User-Agent": "SmartTravelApp/1.0",
         },
-      }
+      },
     );
 
     if (nominatimRes.data?.length) {
@@ -114,18 +138,22 @@ const getTouristPlaces = async (lat, lng, selectedType = "tourist") => {
           const placeLng = parseFloat(p.lon);
 
           return {
-            name: p.display_name,
+            // name: p.display_name,
+            name: p.display_name.split(",")[0],
             lat: placeLat,
             lng: placeLng,
             type: selectedType,
             distance: Number(
-              getDistance(lat, lng, placeLat, placeLng).toFixed(2)
+              getDistance(lat, lng, placeLat, placeLng).toFixed(2),
             ),
             mapLink: `https://www.google.com/maps?q=${placeLat},${placeLng}`,
           };
         })
         .sort((a, b) => a.distance - b.distance);
     }
+
+    console.log("Overpass elements:", elements?.length);
+    console.log("Nominatim results:", nominatimRes.data?.length);
 
     // ============================
     // 3️⃣ FINAL FALLBACK

@@ -69,6 +69,8 @@ import SafeRouteMap from "../../components/SafeRouteMap";
 import { useContext } from "react";
 import { userDataContext } from "../../context/UserContext";
 import socket from "../../socket/socket";
+import { pink, yellow } from "@mui/material/colors";
+import CircularProgress from "@mui/material/CircularProgress";
 
 const Dashboard = () => {
   const [emergencyAlerts, setEmergencyAlerts] = useState([]);
@@ -88,6 +90,8 @@ const Dashboard = () => {
   const [sosPlaces, setSosPlaces] = useState([]);
   const [showSOSView, setShowSOSView] = useState(false);
   const [loadingType, setLoadingType] = useState(null);
+  const pinkC = pink[500];
+  const yellowC = yellow[500];
 
   const [liveLocation, setLiveLocation] = useState(null);
   const [history, setHistory] = useState([]);
@@ -254,7 +258,9 @@ const Dashboard = () => {
 
       // ✅ FIX: define active using case-insensitive comparison
       const active = sortedTrips.find((trip) =>
-        ["active", "emergency"].includes(String(trip.status || "").toLowerCase()),
+        ["active", "emergency"].includes(
+          String(trip.status || "").toLowerCase(),
+        ),
       );
 
       if (active) {
@@ -837,6 +843,15 @@ const Dashboard = () => {
     }
   };
 
+  const placeTypes = [
+    { type: "tourist", label: "🏰 Tourist Places", color: "primary" },
+    { type: "temple", label: "🛕 Temple", customColor: pinkC },
+    { type: "museum", label: "🏛 Museums", customColor: yellowC },
+    { type: "park", label: "🌳 Parks", color: "success" },
+    { type: "restaurant", label: "🍽 Restaurants", color: "warning" },
+    { type: "hotel", label: "🏨 Hotels", color: "secondary" },
+  ];
+
   return (
     <div className="dashboard">
       <section className="relative bg-linear-to-br from-indigo-400 to-purple-700">
@@ -1071,12 +1086,46 @@ const Dashboard = () => {
           <Typography variant="h6">Explore Nearby</Typography>
 
           <Box display="flex" gap={2} mt={1} flexWrap="wrap">
-            <Button
+            {placeTypes.map((p) => (
+              <Button
+                key={p.type}
+                variant="contained"
+                color={p.color || "primary"}
+                sx={
+                  p.customColor
+                    ? {
+                        backgroundColor: p.customColor,
+                        "&:hover": {
+                          backgroundColor: p.customColor[700],
+                        },
+                      }
+                    : {}
+                }
+                disabled={loadingType === p.type}
+                onClick={() => handleSendPlaces(p.type)}
+              >
+                {loadingType === p.type ? (
+                  <CircularProgress size={20} sx={{ color: "white" }} />
+                ) : (
+                  p.label
+                )}
+              </Button>
+            ))}
+            {/* <Button
               variant="contained"
               disabled={loadingType === "tourist"}
               onClick={() => handleSendPlaces("tourist")}
             >
               {loadingType === "tourist" ? "Sending..." : " 🏰 Tourist Places"}
+            </Button>
+
+            <Button
+              variant="contained"
+              // color="pink"
+              disabled={loadingType === "temple"}
+              onClick={() => handleSendPlaces("temple")}
+            >
+              {loadingType === "temple" ? "Sending..." : " 🛕 temple"}
             </Button>
 
             <Button
@@ -1113,7 +1162,7 @@ const Dashboard = () => {
               onClick={() => handleSendPlaces("hotel")}
             >
               {loadingType === "hotel" ? "Sending..." : "🏨 Hotels"}
-            </Button>
+            </Button> */}
           </Box>
         </Box>
       )}
